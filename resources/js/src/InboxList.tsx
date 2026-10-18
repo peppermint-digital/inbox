@@ -1,0 +1,101 @@
+import type { ReactNode } from 'react';
+import { Badge } from './ui/Badge';
+import { cn } from './ui/utils';
+import { inboxIcon, inboxSurfaceClass, inboxTextClass } from './icons';
+import type { InboxItem } from './types';
+
+interface Props {
+    items: InboxItem[];
+    /** Wie ein Zeitpunkt geschrieben wird — das Produkt bringt sein Format mit. */
+    formatTime: (iso: string) => string;
+    /** Wie das eigene System heisst, fuer Zeilen ohne Herkunft. */
+    localLabel: string;
+    sourceLabels: Record<string, string>;
+    onOpen: (item: InboxItem) => void;
+    /** Zusaetzliche Knoepfe je Zeile — fuer das, was nur ein Produkt kann. */
+    renderActions?: (item: InboxItem) => ReactNode;
+    empty?: ReactNode;
+}
+
+/**
+ * Die Liste einer Art.
+ *
+ * Bewusst ohne „gelesen"- und „loeschen"-Knoepfe: Was hier steht, kommt zu
+ * einem grossen Teil aus anderen Systemen, und dort faende eine solche
+ * Aktion kein Ziel. Erledigt wird eine Sache da, wo sie liegt — der Klick
+ * fuehrt hin.
+ */
+export function InboxList({ items, formatTime, localLabel, sourceLabels, onOpen, renderActions, empty }: Props) {
+    if (items.length === 0) {
+        return <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">{empty ?? 'Nichts offen.'}</div>;
+    }
+
+    return (
+        <div className="space-y-2">
+            {items.map((item) => (
+                <Zeile
+                    key={`${item.source ?? 'hier'}:${item.kind}:${item.id}`}
+                    item={item}
+                    formatTime={formatTime}
+                    localLabel={localLabel}
+                    sourceLabels={sourceLabels}
+                    onOpen={onOpen}
+                    renderActions={renderActions}
+                />
+            ))}
+        </div>
+    );
+}
+
+function Zeile({
+    item,
+    formatTime,
+    localLabel,
+    sourceLabels,
+    onOpen,
+    renderActions,
+}: Omit<Props, 'items' | 'empty'> & { item: InboxItem }) {
+    const Symbol = inboxIcon(item.icon);
+    const frisch = item.is_unread;
+
+    // Eine Zeile ohne Herkunft kommt von hier. Das Wort steht trotzdem da:
+    // Sonst muesste der Leser raten, ob die Marke fehlt oder die Zeile
+    // eigen ist — und bei vier Systemen in einer Liste raet man falsch.
+    const herkunft = item.source ? (item.source_label ?? sourceLabels[item.source] ?? item.source) : localLabel;
+
+    const zusatz = Object.entries(item.meta ?? {})
+        .filter(([, wert]) => wert !== null && wert !== '' && typeof wert !== 'object')
+        .map(([, wert]) => String(wert));
+
+    return (
+        <div className={cn('group rounded-lg border p-3', frisch ? inboxSurfaceClass(item.color) : 'transition-colors hover:bg-muted/30')}>
+            <div className="flex items-start gap-3">
+                <div className={cn('mt-0.5 shrink-0 rounded-full p-1.5', frisch ? inboxSurfaceClass(item.color) : 'bg-muted')}>
+                    <Symbol className={cn('h-4 w-4', frisch ? inboxTextClass(item.color) : 'text-muted-foreground')} />
+                </div>
+
+                <div className="min-w-0 flex-1 cursor-pointer" onClick={() => onOpen(item)}>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <p className={cn('font-medium hover:underline', frisch ? inboxTextClass(item.color) : 'truncate')}>{item.title}</p>
+                        <Badge variant="outline">{herkunft}</Badge>
+                    </div>
+
+                    {item.message && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{item.message}</p>}
+
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        {item.created_at && <span>{formatTime(item.created_at)}</span>}
+                        {zusatz.map((wert, i) => (
+                            <span key={i} className="truncate">
+                                · {wert}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="flex shrink-0 items-center gap-1">{renderActions?.(item)}</div>
+            </div>
+        </div>
+    );
+}
+
+export default InboxList;
