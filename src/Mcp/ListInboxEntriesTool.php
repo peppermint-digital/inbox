@@ -8,6 +8,7 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
 use Peppermint\AiBrainBridge\Facades\AiBrain;
 use Peppermint\AiBrainBridge\Verbund\Bruecke;
+use Peppermint\Inbox\Arten\InboxArten;
 use Peppermint\Inbox\Feed\GesamtInbox;
 use Peppermint\Inbox\Feed\SourceLabels;
 use Peppermint\Inbox\Quellen\Quellenverzeichnis;
@@ -68,7 +69,14 @@ class ListInboxEntriesTool extends Tool
             // Die Arten mitzuschicken ist der Unterschied zu einer festen
             // Reiterleiste: Ein System, das eine neue Kategorie einfuehrt,
             // bringt sie den anderen mit, ohne dass dort etwas zu tun waere.
-            'kinds' => $gesammelt['kinds'],
+            //
+            // Und zwar mit WORT, Symbol und Reihenfolge — nicht nur dem
+            // Schluessel. Sonst steht drueben „document" statt „Belege
+            // sichten", und die Erweiterbarkeit endet an der Beschriftung.
+            'kinds' => array_map(
+                fn (string $art): array => app(InboxArten::class)->holen($art)->toArray(),
+                $gesammelt['kinds'],
+            ),
             // Welche eigene Quelle gerade NICHT konnte. Ohne diese Angabe
             // sieht der Aufrufer nur eine kuerzere Liste — und das sieht
             // aus wie „da ist nichts", nicht wie ein Ausfall.

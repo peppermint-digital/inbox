@@ -29,7 +29,7 @@ class FremdeEintraege
     public function __construct(private readonly RemoteSource $quelle) {}
 
     /**
-     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, string>, unreachable: array<int, string>, failed: array<int, string>}
+     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, array<string, mixed>>, unreachable: array<int, string>, failed: array<int, string>}
      */
     public function holen(string $adresse, int $grenze = 50): array
     {
@@ -71,7 +71,9 @@ class FremdeEintraege
             }
 
             foreach ($antwort['kinds'] as $art) {
-                $arten[] = $art;
+                // Nach Schluessel eindeutig: Zwei Systeme koennen dieselbe
+                // Art kennen, und dann soll sie EINEN Reiter ergeben.
+                $arten[$art['key']] ??= $art;
             }
 
             // Eine Quelle, die DRUEBEN nicht konnte. Mit dem Systemnamen
@@ -84,7 +86,7 @@ class FremdeEintraege
 
         return [
             'items' => $zeilen,
-            'kinds' => array_values(array_unique($arten)),
+            'kinds' => array_values($arten),
             'unreachable' => $stumm,
             'failed' => $gescheitert,
         ];

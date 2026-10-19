@@ -72,14 +72,42 @@ class InboxArten
     /**
      * Alle Arten in Anzeigereihenfolge.
      *
-     * @param  array<int, string>  $zusaetzlich  Schluessel, die in den Daten vorkamen.
+     * ## Die fremden Definitionen zaehlen
+     *
+     * Ein anderes System schickt seine Arten MIT Wort, Symbol und
+     * Reihenfolge mit. Nur so erscheint eine neue Kategorie drueben als
+     * „Belege sichten" statt als `document` — ohne sie waere die
+     * Erweiterbarkeit an der Beschriftung zu Ende.
+     *
+     * Die EIGENE Anmeldung gewinnt trotzdem: Wer eine Art hier benennt,
+     * meint sein eigenes Wort, auch wenn ein anderes System ein anderes
+     * dafuer hat.
+     *
+     * @param  array<int, string>  $eigene  Schluessel, die in den eigenen Daten vorkamen.
+     * @param  array<int, array<string, mixed>>  $fremde  Definitionen anderer Systeme.
      * @return array<int, array<string, mixed>>
      */
-    public function alle(array $zusaetzlich = []): array
+    public function alle(array $eigene = [], array $fremde = []): array
     {
         $arten = $this->arten;
 
-        foreach ($zusaetzlich as $schluessel) {
+        foreach ($fremde as $definition) {
+            $schluessel = (string) ($definition['key'] ?? '');
+
+            if ($schluessel === '' || isset($arten[$schluessel])) {
+                continue;
+            }
+
+            $arten[$schluessel] = new InboxArt(
+                schluessel: $schluessel,
+                wort: (string) ($definition['label'] ?? $schluessel),
+                symbol: (string) ($definition['icon'] ?? 'inbox'),
+                farbe: (string) ($definition['color'] ?? 'gray'),
+                reihenfolge: (int) ($definition['order'] ?? 900),
+            );
+        }
+
+        foreach ($eigene as $schluessel) {
             if (! isset($arten[$schluessel])) {
                 $arten[$schluessel] = $this->holen($schluessel);
             }

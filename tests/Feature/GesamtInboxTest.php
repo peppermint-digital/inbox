@@ -103,7 +103,7 @@ function fremdeZeile(array $u = []): array
 
 it('legt eigene und geholte Eintraege in eine Liste', function (): void {
     app(Quellenverzeichnis::class)->anmelden(eigeneQuelle('aufgabe', [eintrag('aufgabe', 'Hier zu tun')]));
-    fremdeLiefern([fremdeZeile()], ['meldung']);
+    fremdeLiefern([fremdeZeile()], [['key' => 'meldung', 'label' => 'Benachrichtigungen']]);
 
     $inbox = app(GesamtInbox::class)->for($this->ich);
 
@@ -118,7 +118,7 @@ it('laesst eigene Zeilen ohne Herkunft und fremde mit', function (): void {
     // Wort ein — ohne diese Unterscheidung muesste der Leser raten, ob
     // eine Zeile von hier kommt oder ihre Marke verlorenging.
     app(Quellenverzeichnis::class)->anmelden(eigeneQuelle('aufgabe', [eintrag('aufgabe', 'Hier zu tun')]));
-    fremdeLiefern([fremdeZeile()], ['meldung']);
+    fremdeLiefern([fremdeZeile()], [['key' => 'meldung', 'label' => 'Benachrichtigungen']]);
 
     $zeilen = collect(app(GesamtInbox::class)->for($this->ich)['items'])->keyBy('title');
 
@@ -141,7 +141,7 @@ it('kappt je Art UND System, nicht global', function (): void {
     fremdeLiefern([
         fremdeZeile(['id' => 'c1', 'title' => 'Fremd 1', 'created_at' => now()->subYear()->toIso8601String()]),
         fremdeZeile(['id' => 'c2', 'title' => 'Fremd 2', 'created_at' => now()->subYear()->toIso8601String()]),
-    ], ['meldung']);
+    ], [['key' => 'meldung', 'label' => 'Benachrichtigungen']]);
 
     $titel = array_column(app(GesamtInbox::class)->for($this->ich)['items'], 'title');
 
@@ -155,21 +155,41 @@ it('zaehlt je Art nur das Ungelesene', function (): void {
         eintrag('aufgabe', 'Offen'),
         eintrag('aufgabe', 'Schon gesehen', ['ungelesen' => false]),
     ]));
-    fremdeLiefern([fremdeZeile()], ['meldung']);
+    fremdeLiefern([fremdeZeile()], [['key' => 'meldung', 'label' => 'Benachrichtigungen']]);
 
     expect(app(GesamtInbox::class)->for($this->ich)['counts'])
         ->toBe(['aufgabe' => 1, 'meldung' => 1]);
 });
 
-it('nimmt eine Art auf, die nur ein anderes System kennt', function (): void {
+it('nimmt eine Art auf, die nur ein anderes System kennt — MIT ihrem Wort', function (): void {
     // Die Erweiterbarkeit ueber Systemgrenzen: Wer eine neue Kategorie
     // einfuehrt, bringt sie den anderen mit — ohne Deploy drueben.
-    fremdeLiefern([fremdeZeile(['kind' => 'rechnung', 'title' => 'Beleg prüfen'])], ['rechnung']);
+    //
+    // Und zwar samt Beschriftung. Reiste nur der Schluessel, stuende hier
+    // „rechnung" statt „Belege sichten", und die Erweiterbarkeit waere an
+    // der Beschriftung zu Ende.
+    fremdeLiefern(
+        [fremdeZeile(['kind' => 'rechnung', 'title' => 'Beleg prüfen'])],
+        [['key' => 'rechnung', 'label' => 'Belege sichten', 'icon' => 'file-text', 'color' => 'orange', 'order' => 25]],
+    );
 
     $inbox = app(GesamtInbox::class)->for($this->ich);
+    $art = collect($inbox['kinds'])->firstWhere('key', 'rechnung');
 
-    expect(array_column($inbox['kinds'], 'key'))->toContain('rechnung')
+    expect($art)->not->toBeNull()
+        ->and($art['label'])->toBe('Belege sichten')
+        ->and($art['icon'])->toBe('file-text')
         ->and(array_column($inbox['items'], 'title'))->toContain('Beleg prüfen');
+});
+
+it('laesst die EIGENE Benennung einer Art gewinnen', function (): void {
+    // Zwei Systeme koennen dieselbe Art verschieden nennen. Wer sie hier
+    // anmeldet, meint sein eigenes Wort.
+    fremdeLiefern([], [['key' => 'aufgabe', 'label' => 'Fremdes Wort']]);
+
+    $art = collect(app(GesamtInbox::class)->for($this->ich)['kinds'])->firstWhere('key', 'aufgabe');
+
+    expect($art['label'])->toBe('Neue Aufgaben');
 });
 
 it('nennt ein System, das nicht geantwortet hat', function (): void {

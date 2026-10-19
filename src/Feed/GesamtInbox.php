@@ -60,7 +60,7 @@ class GesamtInbox
 
         return [
             'items' => $zeilen,
-            'kinds' => $this->arten->alle(array_merge($eigen['kinds'], $fremd['kinds'])),
+            'kinds' => $this->arten->alle($eigen['kinds'], $fremd['kinds']),
             'counts' => $this->zaehlen($zeilen),
             'unreachable' => $fremd['unreachable'],
             // Eigene Quellen, die gerade nicht konnten. Eine andere Lage als
@@ -152,7 +152,7 @@ class GesamtInbox
     }
 
     /**
-     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, string>, unreachable: array<int, string>, failed: array<int, string>}
+     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, array<string, mixed>>, unreachable: array<int, string>, failed: array<int, string>}
      */
     private function fremdeZeilen(Model $person, int $grenze, bool $frisch): array
     {
