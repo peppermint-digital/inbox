@@ -5,7 +5,7 @@ namespace Peppermint\Inbox\Feed;
 use Peppermint\AiBrainBridge\Verbund\Huelle;
 
 /**
- * Die Antwort von `list-inbox-tool` auspacken.
+ * Die Antwort von `list-inbox-entries-tool` auspacken.
  *
  * Die Huellen-Logik selbst steht in {@see Huelle} — sie ist dieselbe fuer
  * jedes Werkzeug am Komm-Layer, und eine zweite Kopie davon veraltet

@@ -37,7 +37,7 @@ class BridgeRemoteSource implements RemoteSource
             // Die Nabe wird direkt gefragt, nicht ueber den Gateway: Sie
             // wuerde sich sonst selbst weiterreichen.
             return Auspacken::antwort(
-                (array) AiBrain::call('list-inbox-tool', ['limit' => $grenze])
+                (array) AiBrain::call('list-inbox-entries-tool', ['limit' => $grenze])
             );
         }
 

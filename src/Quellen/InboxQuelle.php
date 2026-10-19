@@ -15,7 +15,7 @@ use Peppermint\Inbox\Feed\Eintrag;
  * ## Nur die EIGENEN Eintraege
  *
  * Eine Quelle liefert ausschliesslich, was in diesem System steht. Was die
- * anderen haben, holt der Sammler selbst ueber die Faehigkeit `inbox.list`.
+ * anderen haben, holt der Sammler selbst ueber die Faehigkeit `inbox.entries`.
  * Wuerde eine Quelle ihrerseits fremde Eintraege mitliefern, kaeme jede
  * Zeile ueber zwei Wege herein — und der Verbund fragte sich im Kreis.
  */

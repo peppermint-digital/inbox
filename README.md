@@ -33,8 +33,14 @@ Inbox. Das ist der richtige Ausgangszustand.
 ## Über die Systemgrenze
 
 Jedes System gibt seine **eigenen** Einträge über das MCP-Werkzeug
-`list-inbox-tool` heraus (Fähigkeit `inbox.list`). Das fragende System legt
-sie mit seinen zusammen.
+`list-inbox-entries-tool` heraus (Fähigkeit `inbox.entries`). Das fragende
+System legt sie mit seinen zusammen.
+
+Nicht `inbox.list` — die ist seit längerem für den Aufgaben-Posteingang des
+Managers und der Verwaltung vergeben, mit einer ganz anderen Antwortform
+(`inbox`/`unread` statt `items`/`kinds`). Beides „Inbox" zu nennen wäre
+richtig und trotzdem falsch: Wer die eine erwartet und die andere bekommt,
+sieht eine leere Liste und keinen Fehler.
 
 Bewusst nur die eigenen: Lieferte ein System die geholten mit, fragte der
 Verbund sich im Kreis und jede Zeile käme mehrfach an.

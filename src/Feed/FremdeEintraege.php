@@ -9,7 +9,9 @@ use Illuminate\Support\Facades\Log;
  *
  * ## Die Faehigkeit
  *
- * `inbox.list` im Komm-Layer, drueben als `list-inbox-tool`. Jedes System
+ * `inbox.entries` im Komm-Layer, drueben als `list-inbox-entries-tool`.
+ * NICHT `inbox.list` — die ist seit laengerem fuer den Aufgaben-
+ * Posteingang des Managers vergeben, mit anderer Antwortform. Jedes System
  * gibt nur seine EIGENEN Eintraege heraus — wuerde es die geholten
  * mitliefern, fragte der Verbund sich im Kreis und jede Zeile kaeme
  * mehrfach an.
@@ -22,7 +24,7 @@ use Illuminate\Support\Facades\Log;
  */
 class FremdeEintraege
 {
-    public const CAPABILITY = 'inbox.list';
+    public const CAPABILITY = 'inbox.entries';
 
     public function __construct(private readonly RemoteSource $quelle) {}
 

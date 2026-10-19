@@ -15,7 +15,15 @@ use Peppermint\Inbox\Quellen\Quellenverzeichnis;
 /**
  * Die EIGENEN Inbox-Eintraege herausgeben.
  *
- * Die Anbieter-Seite der Faehigkeit `inbox.list`. Ein anderes System fragt,
+ * Die Anbieter-Seite der Faehigkeit `inbox.entries`.
+ *
+ * ## Warum nicht `inbox.list`
+ *
+ * Die war schon vergeben — fuer den Aufgaben-Posteingang des Managers
+ * und der Verwaltung, mit einer ganz anderen Antwortform
+ * (`inbox`/`unread` statt `items`/`kinds`). Beides „Inbox" zu nennen
+ * waere richtig und trotzdem falsch: Ein Aufrufer, der die eine erwartet
+ * und die andere bekommt, sieht eine leere Liste und keinen Fehler. Ein anderes System fragt,
  * dieses antwortet mit dem, was hier fuer die handelnde Person steht —
  * Aufgaben, Meldungen, Liegengebliebenes, was auch immer angemeldet ist.
  *
@@ -32,7 +40,7 @@ use Peppermint\Inbox\Quellen\Quellenverzeichnis;
  * gehoert immer genau einem Menschen; ein Aufruf ohne Person koennte nur
  * „alle" meinen, und das waere ein Datenleck ueber Systemgrenzen hinweg.
  */
-class ListInboxTool extends Tool
+class ListInboxEntriesTool extends Tool
 {
     protected string $description = 'List the inbox entries of the acting person in this system — tasks, notifications and whatever else this product contributes. Read-only; the caller merges them with its own.';
 
