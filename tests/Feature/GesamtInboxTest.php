@@ -235,3 +235,31 @@ it('nennt auch eine Quelle, die in einem ANDEREN System gescheitert ist', functi
     expect(app(GesamtInbox::class)->for($this->ich)['failed'])
         ->toBe(['Peppermint Manager: activity']);
 });
+
+it('kappt im Werkzeug NICHT ueber die Gesamtliste', function (): void {
+    // Der Fehler vom 19.10.2026, und zwar der, vor dem das README
+    // ausdruecklich warnt — von mir selbst wieder eingebaut:
+    //
+    // Das Werkzeug schnitt die zusammengefuegte Liste auf `limit`. Der
+    // Manager meldet Aufgaben, Aenderungen und Liegengebliebenes VOR den
+    // Meldungen an; zusammen 49. Die 50er-Grenze liess danach genau EINE
+    // Meldung durch, und in den anderen drei Systemen fehlten seine 50
+    // Meldungen vollstaendig. Ohne Fehler, ohne Hinweis.
+    //
+    // Jede Quelle wendet die Grenze fuer SICH an — ein zweiter Schnitt
+    // kappt nach Anmelde-Reihenfolge statt nach Inhalt.
+    app(Quellenverzeichnis::class)->anmeldenViele([
+        eigeneQuelle('aufgabe', array_map(fn (int $i): Eintrag => eintrag('aufgabe', "A$i"), range(1, 40))),
+        eigeneQuelle('meldung', array_map(fn (int $i): Eintrag => eintrag('meldung', "M$i"), range(1, 40))),
+    ]);
+
+    $gesammelt = app(Quellenverzeichnis::class)->sammeln($this->ich, 50);
+
+    $h = [];
+    foreach ($gesammelt['items'] as $z) {
+        $h[$z['kind']] = ($h[$z['kind']] ?? 0) + 1;
+    }
+
+    // Beide Arten vollstaendig: 80 Zeilen, nicht 50.
+    expect($h)->toBe(['aufgabe' => 40, 'meldung' => 40]);
+});

@@ -81,7 +81,17 @@ class ListInboxEntriesTool extends Tool
             // sieht der Aufrufer nur eine kuerzere Liste — und das sieht
             // aus wie „da ist nichts", nicht wie ein Ausfall.
             'failed' => $gesammelt['failed'],
-            'items' => array_slice($gesammelt['items'], 0, $grenze),
+            // KEIN Deckel ueber die Gesamtliste. Jede Quelle hat `$grenze`
+            // bereits fuer SICH angewandt; ein zweiter Schnitt hier kappt
+            // nach Anmelde-Reihenfolge statt nach Inhalt.
+            //
+            // Genau das ist am 19.10.2026 passiert: Der Manager meldet
+            // Aufgaben, Aenderungen und Liegengebliebenes vor den
+            // Meldungen an — zusammen 49. Die 50er-Grenze liess danach
+            // genau EINE Meldung durch, und in den anderen drei Systemen
+            // fehlten seine 50 Meldungen vollstaendig. Ohne Fehler, ohne
+            // Hinweis: Die Liste sah nur kuerzer aus.
+            'items' => $gesammelt['items'],
         ]);
     }
 
