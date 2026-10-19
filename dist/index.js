@@ -255,7 +255,14 @@ function InboxPage({
           children: [
             /* @__PURE__ */ jsx3(Symbol, { className: "h-4 w-4 shrink-0" }),
             /* @__PURE__ */ jsx3("span", { children: art.label }),
-            zahl > 0 && /* @__PURE__ */ jsx3("span", { className: "inline-flex min-w-5 shrink-0 items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 text-xs leading-none text-destructive-foreground tabular-nums", children: zahl })
+            zahl > 0 && // `text-white`, nicht `text-destructive-foreground`:
+            // Das ist in den Produkt-Themes nicht gesetzt und
+            // erbt dann das Grau des Reiters — Grau auf Rot bei
+            // fast gleicher Helligkeit. Die Zahl stand da und
+            // war trotzdem unsichtbar; gefunden erst beim
+            // Nachmessen der berechneten Farbe, nicht beim
+            // Hinsehen.
+            /* @__PURE__ */ jsx3("span", { className: "inline-flex min-w-5 shrink-0 items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 text-xs leading-none font-medium text-white tabular-nums", children: zahl })
           ]
         },
         art.key

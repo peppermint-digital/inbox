@@ -96,7 +96,14 @@ export function InboxPage({
                             <Symbol className="h-4 w-4 shrink-0" />
                             <span>{art.label}</span>
                             {zahl > 0 && (
-                                <span className="inline-flex min-w-5 shrink-0 items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 text-xs leading-none text-destructive-foreground tabular-nums">
+                                // `text-white`, nicht `text-destructive-foreground`:
+                                // Das ist in den Produkt-Themes nicht gesetzt und
+                                // erbt dann das Grau des Reiters — Grau auf Rot bei
+                                // fast gleicher Helligkeit. Die Zahl stand da und
+                                // war trotzdem unsichtbar; gefunden erst beim
+                                // Nachmessen der berechneten Farbe, nicht beim
+                                // Hinsehen.
+                                <span className="inline-flex min-w-5 shrink-0 items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 text-xs leading-none font-medium text-white tabular-nums">
                                     {zahl}
                                 </span>
                             )}

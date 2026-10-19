@@ -129,3 +129,16 @@ describe('Die Reiterleiste', () => {
         expect(screen.getByText('Posteingang')).toBeDefined();
     });
 });
+
+it('schreibt den Zaehler in einer Farbe, die auf Rot steht', () => {
+    // `text-destructive-foreground` ist in den Produkt-Themes nicht
+    // gesetzt und erbt das Grau des Reiters — Grau auf Rot bei fast
+    // gleicher Helligkeit. Die Zahl war im Markup und trotzdem
+    // unsichtbar.
+    render(<InboxPage {...daten({ counts: { aufgabe: 13 } })} {...basis} />);
+
+    const pille = [...screen.getByRole('tab', { name: /Neue Aufgaben/ }).querySelectorAll('span')].pop();
+
+    expect(pille?.className).toContain('text-white');
+    expect(pille?.className).not.toContain('text-destructive-foreground');
+});
