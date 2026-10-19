@@ -70,13 +70,14 @@ function eintrag(string $art, string $titel, array $u = []): Eintrag
 }
 
 /** Die Holer-Seite durch feste Antworten ersetzen. */
-function fremdeLiefern(array $zeilen, array $arten = [], array $stumm = []): void
+function fremdeLiefern(array $zeilen, array $arten = [], array $stumm = [], array $gescheitert = []): void
 {
     $attrappe = Mockery::mock(FremdeEintraege::class);
     $attrappe->shouldReceive('holen')->andReturn([
         'items' => $zeilen,
         'kinds' => $arten,
         'unreachable' => $stumm,
+        'failed' => $gescheitert,
     ]);
 
     app()->instance(FremdeEintraege::class, $attrappe);
@@ -202,4 +203,15 @@ it('stellt Ungelesenes vor Gelesenes, dann das Neuere', function (): void {
 
     expect(array_column(app(GesamtInbox::class)->for($this->ich)['items'], 'title'))
         ->toBe(['Alt und offen', 'Alt und gelesen']);
+});
+
+it('nennt auch eine Quelle, die in einem ANDEREN System gescheitert ist', function (): void {
+    // Ohne diese Weitergabe sieht der Aufrufer nur eine kuerzere Liste —
+    // und das sieht aus wie „da ist nichts", nicht wie ein Ausfall. Beim
+    // ersten Livetest fehlten genau so die Aktivitaeten des Managers, und
+    // nichts sagte warum.
+    fremdeLiefern([], [], [], ['Peppermint Manager: activity']);
+
+    expect(app(GesamtInbox::class)->for($this->ich)['failed'])
+        ->toBe(['Peppermint Manager: activity']);
 });

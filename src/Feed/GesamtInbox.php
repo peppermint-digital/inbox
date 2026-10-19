@@ -65,7 +65,7 @@ class GesamtInbox
             'unreachable' => $fremd['unreachable'],
             // Eigene Quellen, die gerade nicht konnten. Eine andere Lage als
             // „System nicht erreichbar", deshalb ein eigenes Feld.
-            'failed' => $eigen['failed'],
+            'failed' => array_merge($eigen['failed'], $fremd['failed']),
             'labels' => SourceLabels::all(),
         ];
     }
@@ -152,7 +152,7 @@ class GesamtInbox
     }
 
     /**
-     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, string>, unreachable: array<int, string>}
+     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, string>, unreachable: array<int, string>, failed: array<int, string>}
      */
     private function fremdeZeilen(Model $person, int $grenze, bool $frisch): array
     {
@@ -160,7 +160,7 @@ class GesamtInbox
 
         if (! is_string($adresse) || trim($adresse) === '') {
             // Ohne Adresse kann kein anderes System den Menschen finden.
-            return ['items' => [], 'kinds' => [], 'unreachable' => []];
+            return ['items' => [], 'kinds' => [], 'unreachable' => [], 'failed' => []];
         }
 
         $schluessel = 'inbox.fremde.'.sha1($adresse);

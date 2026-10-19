@@ -29,13 +29,14 @@ class FremdeEintraege
     public function __construct(private readonly RemoteSource $quelle) {}
 
     /**
-     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, string>, unreachable: array<int, string>}
+     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, string>, unreachable: array<int, string>, failed: array<int, string>}
      */
     public function holen(string $adresse, int $grenze = 50): array
     {
         $zeilen = [];
         $arten = [];
         $stumm = [];
+        $gescheitert = [];
 
         foreach ($this->quelle->anbieter() as $anbieter) {
             $schluessel = (string) ($anbieter['key'] ?? $anbieter['slug'] ?? '');
@@ -72,12 +73,20 @@ class FremdeEintraege
             foreach ($antwort['kinds'] as $art) {
                 $arten[] = $art;
             }
+
+            // Eine Quelle, die DRUEBEN nicht konnte. Mit dem Systemnamen
+            // davor, sonst steht in der Ansicht „task" und niemand weiss,
+            // in welchem der vier Systeme man nachsehen soll.
+            foreach (($antwort['failed'] ?? []) as $art) {
+                $gescheitert[] = $wort.': '.$art;
+            }
         }
 
         return [
             'items' => $zeilen,
             'kinds' => array_values(array_unique($arten)),
             'unreachable' => $stumm,
+            'failed' => $gescheitert,
         ];
     }
 }

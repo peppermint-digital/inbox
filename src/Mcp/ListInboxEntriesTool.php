@@ -55,6 +55,7 @@ class ListInboxEntriesTool extends Tool
                 'source' => SourceLabels::local(),
                 'items' => [],
                 'kinds' => [],
+                'failed' => [],
             ]);
         }
 
@@ -68,6 +69,10 @@ class ListInboxEntriesTool extends Tool
             // Reiterleiste: Ein System, das eine neue Kategorie einfuehrt,
             // bringt sie den anderen mit, ohne dass dort etwas zu tun waere.
             'kinds' => $gesammelt['kinds'],
+            // Welche eigene Quelle gerade NICHT konnte. Ohne diese Angabe
+            // sieht der Aufrufer nur eine kuerzere Liste — und das sieht
+            // aus wie „da ist nichts", nicht wie ein Ausfall.
+            'failed' => $gesammelt['failed'],
             'items' => array_slice($gesammelt['items'], 0, $grenze),
         ]);
     }

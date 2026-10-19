@@ -15,7 +15,7 @@ final class Auspacken
 {
     /**
      * @param  array<string, mixed>  $antwort
-     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, string>}
+     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, string>, failed: array<int, string>}
      */
     public static function antwort(array $antwort): array
     {
@@ -24,6 +24,10 @@ final class Auspacken
         return [
             'items' => Huelle::zeilen($huelle),
             'kinds' => Huelle::woerter($huelle, 'kinds'),
+            // Arten, die DRUEBEN nicht geliefert werden konnten. Sie
+            // fehlen in der Liste, und ohne diese Angabe faellt das
+            // niemandem auf.
+            'failed' => Huelle::woerter($huelle, 'failed'),
         ];
     }
 }

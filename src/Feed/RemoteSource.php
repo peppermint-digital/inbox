@@ -27,7 +27,7 @@ interface RemoteSource
     /**
      * Die Eintraege eines Systems fuer diese Adresse.
      *
-     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, string>}
+     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, string>, failed: array<int, string>}
      */
     public function holen(string $slug, string $adresse, int $grenze): array;
 }
