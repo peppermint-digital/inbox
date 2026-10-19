@@ -109,3 +109,23 @@ describe('InboxPage', () => {
         expect(screen.queryByText('Angebot nachfassen')).toBeNull();
     });
 });
+
+describe('Die Reiterleiste', () => {
+    it('zeigt die Zahl am Reiter, nicht nur einen Punkt', () => {
+        // Beim ersten Browser-Durchgang quetschte `flex-1` sechs Reiter auf
+        // gleiche Breite, und aus jedem Zaehler wurde ein leerer roter
+        // Punkt. Die Zahl stand im Markup — sichtbar war sie nicht.
+        render(<InboxPage {...daten({ counts: { aufgabe: 13 } })} {...basis} />);
+
+        const reiter = screen.getByRole('tab', { name: /Neue Aufgaben/ });
+
+        expect(reiter.textContent).toContain('13');
+        expect(reiter.className).not.toContain('flex-1');
+    });
+
+    it('heisst auf Deutsch Posteingang', () => {
+        render(<InboxPage {...daten()} {...basis} />);
+
+        expect(screen.getByText('Posteingang')).toBeDefined();
+    });
+});

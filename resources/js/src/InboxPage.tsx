@@ -43,7 +43,7 @@ export function InboxPage({
     onOpen,
     renderActions,
     initialKind,
-    title = 'Inbox',
+    title = 'Posteingang',
     subtitle = 'Alles, was auf dich wartet — aus allen Systemen',
 }: Props) {
     const ersterMitInhalt = useMemo(
@@ -85,14 +85,18 @@ export function InboxPage({
                             aria-selected={aktiv}
                             onClick={() => setOffen(art.key)}
                             className={cn(
-                                'flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm whitespace-nowrap transition-colors',
+                                // KEIN `flex-1`: Bei sechs Reitern quetscht das
+                                // jeden auf gleiche Breite, und der Zaehler wird
+                                // zu einem leeren roten Punkt zusammengedrueckt.
+                                // Genau so sah es im ersten Browser-Durchgang aus.
+                                'flex items-center gap-2 rounded-md px-3 py-2 text-sm whitespace-nowrap transition-colors',
                                 aktiv ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground',
                             )}
                         >
-                            <Symbol className="h-4 w-4" />
+                            <Symbol className="h-4 w-4 shrink-0" />
                             <span>{art.label}</span>
                             {zahl > 0 && (
-                                <span className="rounded-full bg-destructive px-1.5 py-0.5 text-xs leading-none text-destructive-foreground">
+                                <span className="inline-flex min-w-5 shrink-0 items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 text-xs leading-none text-destructive-foreground tabular-nums">
                                     {zahl}
                                 </span>
                             )}
