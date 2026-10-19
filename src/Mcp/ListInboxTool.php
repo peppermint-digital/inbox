@@ -9,7 +9,7 @@ use Laravel\Mcp\Server\Tool;
 use Peppermint\Inbox\Feed\GesamtInbox;
 use Peppermint\Inbox\Feed\SourceLabels;
 use Peppermint\Inbox\Quellen\Quellenverzeichnis;
-use Peppermint\Inbox\Support\Bruecke;
+use Peppermint\Inbox\Verbund\Bruecke;
 
 /**
  * Die EIGENEN Inbox-Eintraege herausgeben.

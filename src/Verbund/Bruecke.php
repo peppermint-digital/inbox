@@ -1,6 +1,6 @@
 <?php
 
-namespace Peppermint\Inbox\Support;
+namespace Peppermint\Inbox\Verbund;
 
 /**
  * Gibt es hier eine benutzbare Bruecke zu AI Brain?

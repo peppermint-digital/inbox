@@ -2,13 +2,14 @@
 
 namespace Peppermint\Inbox\Feed;
 
+use Peppermint\Inbox\Verbund\Huelle;
+
 /**
- * Die Antwort eines MCP-Werkzeugs auspacken.
+ * Die Antwort von `list-inbox-tool` auspacken.
  *
- * Dieselbe Nutzlast kommt je nach Weg in verschiedenen Huellen an —
- * `data`, `structuredContent`, `content`, `result` oder gleich nackt. Das
- * ist nicht schoen, aber es ist die Wirklichkeit der Leitung, und sie
- * hier einmal aufzuloesen ist besser als an vier Aufrufstellen.
+ * Die Huellen-Logik selbst steht in {@see Huelle} — sie ist dieselbe fuer
+ * jedes Werkzeug am Komm-Layer, und eine zweite Kopie davon veraltet
+ * still.
  */
 final class Auspacken
 {
@@ -18,41 +19,11 @@ final class Auspacken
      */
     public static function antwort(array $antwort): array
     {
-        $huelle = self::huelle($antwort);
+        $huelle = Huelle::schaelen($antwort);
 
         return [
-            'items' => array_values(array_filter(
-                (array) ($huelle['items'] ?? []),
-                static fn ($zeile): bool => is_array($zeile),
-            )),
-            'kinds' => array_values(array_filter(
-                (array) ($huelle['kinds'] ?? []),
-                static fn ($art): bool => is_string($art) && $art !== '',
-            )),
+            'items' => Huelle::zeilen($huelle),
+            'kinds' => Huelle::woerter($huelle, 'kinds'),
         ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $antwort
-     * @return array<string, mixed>
-     */
-    private static function huelle(array $antwort): array
-    {
-        $huellen = [
-            $antwort,
-            $antwort['data'] ?? null,
-            $antwort['structuredContent'] ?? null,
-            $antwort['content'] ?? null,
-            $antwort['result'] ?? null,
-            $antwort['antwort'] ?? null,
-        ];
-
-        foreach ($huellen as $huelle) {
-            if (is_array($huelle) && isset($huelle['items']) && is_array($huelle['items'])) {
-                return $huelle;
-            }
-        }
-
-        return [];
     }
 }

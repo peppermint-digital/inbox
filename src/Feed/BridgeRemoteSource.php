@@ -2,7 +2,7 @@
 
 namespace Peppermint\Inbox\Feed;
 
-use Peppermint\Inbox\Support\Bruecke;
+use Peppermint\Inbox\Verbund\Bruecke;
 
 /**
  * Die Produkt-Seite: ueber die Bruecke beim AI Brain fragen.
