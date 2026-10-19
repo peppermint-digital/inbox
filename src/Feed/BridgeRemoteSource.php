@@ -2,7 +2,8 @@
 
 namespace Peppermint\Inbox\Feed;
 
-use Peppermint\Inbox\Verbund\Bruecke;
+use Peppermint\AiBrainBridge\Facades\AiBrain;
+use Peppermint\AiBrainBridge\Verbund\Bruecke;
 
 /**
  * Die Produkt-Seite: ueber die Bruecke beim AI Brain fragen.
@@ -14,21 +15,20 @@ use Peppermint\Inbox\Verbund\Bruecke;
  */
 class BridgeRemoteSource implements RemoteSource
 {
-    private const BRUECKE = Bruecke::FACADE;
-
     private const HUB_SLUG = 'ai-brain';
 
     private const HUB = ['slug' => self::HUB_SLUG, 'key' => self::HUB_SLUG, 'label' => 'AI Brain'];
 
     public function anbieter(): array
     {
-        if (! Bruecke::verfuegbar()) {
-            // Ohne Bruecke gibt es keinen Verbund. Das ist der
-            // Allein-Betrieb, kein Fehler — die eigene Inbox steht trotzdem.
+        if (! Bruecke::eingerichtet()) {
+            // Die Bruecke ist Pflicht, ihre EINRICHTUNG nicht garantiert:
+            // AI Brain hat das Paket, ohne es einzurichten — es ist der
+            // Hub. Dann bleibt die eigene Inbox, und zwar vollstaendig.
             return [];
         }
 
-        return array_merge([self::HUB], (self::BRUECKE)::providers(FremdeEintraege::CAPABILITY));
+        return array_merge([self::HUB], AiBrain::providers(FremdeEintraege::CAPABILITY));
     }
 
     public function holen(string $slug, string $adresse, int $grenze): array
@@ -37,11 +37,11 @@ class BridgeRemoteSource implements RemoteSource
             // Die Nabe wird direkt gefragt, nicht ueber den Gateway: Sie
             // wuerde sich sonst selbst weiterreichen.
             return Auspacken::antwort(
-                (array) (self::BRUECKE)::call('list-inbox-tool', ['limit' => $grenze])
+                (array) AiBrain::call('list-inbox-tool', ['limit' => $grenze])
             );
         }
 
-        $antwort = (self::BRUECKE)::gateway(
+        $antwort = AiBrain::gateway(
             FremdeEintraege::CAPABILITY,
             ['limit' => $grenze],
             $slug,

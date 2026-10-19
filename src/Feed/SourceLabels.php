@@ -2,7 +2,7 @@
 
 namespace Peppermint\Inbox\Feed;
 
-use Peppermint\Inbox\Verbund\Systemnamen;
+use Peppermint\AiBrainBridge\Verbund\Systemnamen;
 
 /**
  * Wie die Systeme in DIESEM Paket heissen.

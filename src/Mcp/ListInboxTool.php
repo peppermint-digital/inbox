@@ -6,10 +6,11 @@ use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
+use Peppermint\AiBrainBridge\Facades\AiBrain;
+use Peppermint\AiBrainBridge\Verbund\Bruecke;
 use Peppermint\Inbox\Feed\GesamtInbox;
 use Peppermint\Inbox\Feed\SourceLabels;
 use Peppermint\Inbox\Quellen\Quellenverzeichnis;
-use Peppermint\Inbox\Verbund\Bruecke;
 
 /**
  * Die EIGENEN Inbox-Eintraege herausgeben.
@@ -80,8 +81,8 @@ class ListInboxTool extends Tool
      */
     private function handelnde(): mixed
     {
-        if (Bruecke::verfuegbar()) {
-            $adresse = (Bruecke::FACADE)::actingUserEmail();
+        if (Bruecke::eingerichtet()) {
+            $adresse = AiBrain::actingUserEmail();
 
             if (is_string($adresse) && trim($adresse) !== '') {
                 $modell = (string) config('inbox.user_model');

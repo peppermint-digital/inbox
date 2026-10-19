@@ -2,7 +2,7 @@
 
 namespace Peppermint\Inbox\Feed;
 
-use Peppermint\Inbox\Verbund\Huelle;
+use Peppermint\AiBrainBridge\Verbund\Huelle;
 
 /**
  * Die Antwort von `list-inbox-tool` auspacken.
