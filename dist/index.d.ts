@@ -56,6 +56,13 @@ interface Props$1 extends InboxData {
     renderActions?: (item: InboxItem) => ReactNode;
     /** Welcher Reiter zuerst offen ist. Ohne Angabe der erste mit Inhalt. */
     initialKind?: string;
+    /**
+     * Wohin der Einstellungs-Knopf fuehrt.
+     *
+     * Die Vorgabe ist in allen vier Systemen derselbe Pfad. `null`
+     * blendet den Knopf aus — fuer ein Produkt, das die Maske nicht hat.
+     */
+    settingsHref?: string | null;
     title?: string;
     subtitle?: string;
 }
@@ -76,7 +83,7 @@ interface Props$1 extends InboxData {
  * keine. Wer den Reiter gestern gesehen hat und heute nicht mehr, sucht
  * den Fehler bei sich.
  */
-declare function InboxPage({ items, kinds, counts, unreachable, failed, labels, formatTime, onOpen, renderActions, initialKind, title, subtitle, }: Props$1): react.JSX.Element;
+declare function InboxPage({ items, kinds, counts, unreachable, failed, labels, formatTime, onOpen, renderActions, initialKind, settingsHref, title, subtitle, }: Props$1): react.JSX.Element;
 
 interface Props {
     items: InboxItem[];

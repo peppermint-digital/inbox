@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { InboxList } from './InboxList';
 import { inboxIcon } from './icons';
+import { Settings as Zahnrad } from 'lucide-react';
 import { cn } from './ui/utils';
 import type { InboxData, InboxItem } from './types';
 
@@ -11,6 +12,13 @@ interface Props extends InboxData {
     renderActions?: (item: InboxItem) => ReactNode;
     /** Welcher Reiter zuerst offen ist. Ohne Angabe der erste mit Inhalt. */
     initialKind?: string;
+    /**
+     * Wohin der Einstellungs-Knopf fuehrt.
+     *
+     * Die Vorgabe ist in allen vier Systemen derselbe Pfad. `null`
+     * blendet den Knopf aus — fuer ein Produkt, das die Maske nicht hat.
+     */
+    settingsHref?: string | null;
     title?: string;
     subtitle?: string;
 }
@@ -43,6 +51,7 @@ export function InboxPage({
     onOpen,
     renderActions,
     initialKind,
+    settingsHref = '/settings/notifications',
     title = 'Posteingang',
     subtitle = 'Alles, was auf dich wartet — aus allen Systemen',
 }: Props) {
@@ -57,9 +66,26 @@ export function InboxPage({
 
     return (
         <div className="space-y-4">
-            <div>
-                <h1 className="text-2xl font-semibold">{title}</h1>
-                <p className="text-sm text-muted-foreground">{subtitle}</p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h1 className="text-2xl font-semibold">{title}</h1>
+                    <p className="text-sm text-muted-foreground">{subtitle}</p>
+                </div>
+
+                {/* Der Weg zu den Einstellungen gehoert HIERHER.
+                    Bisher fuehrte er ueber Avatar → Settings → den Reiter
+                    „Benachrichtigungen" zwischen sechs anderen. Drei Klicks
+                    fuer etwas, das man genau in dem Moment sucht, in dem
+                    man auf diese Liste sieht und sie zu voll findet. */}
+                {settingsHref !== null && (
+                    <a
+                        href={settingsHref}
+                        className="inline-flex shrink-0 items-center gap-2 rounded-md border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                    >
+                        <Zahnrad className="h-4 w-4" />
+                        <span>Einstellungen</span>
+                    </a>
+                )}
             </div>
 
             {(unreachable.length > 0 || failed.length > 0) && (

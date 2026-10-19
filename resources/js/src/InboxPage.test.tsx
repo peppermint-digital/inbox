@@ -137,8 +137,35 @@ it('schreibt den Zaehler in einer Farbe, die auf Rot steht', () => {
     // unsichtbar.
     render(<InboxPage {...daten({ counts: { aufgabe: 13 } })} {...basis} />);
 
-    const pille = [...screen.getByRole('tab', { name: /Neue Aufgaben/ }).querySelectorAll('span')].pop();
+    const spans = Array.from(screen.getByRole("tab", { name: /Neue Aufgaben/ }).querySelectorAll("span"));
+    const pille = spans[spans.length - 1];
 
     expect(pille?.className).toContain('text-white');
     expect(pille?.className).not.toContain('text-destructive-foreground');
+});
+
+describe('Der Weg zu den Einstellungen', () => {
+    it('steht als Knopf auf der Seite', () => {
+        // Bisher fuehrte er ueber Avatar → Settings → den Reiter
+        // „Benachrichtigungen" zwischen sechs anderen. Drei Klicks fuer
+        // etwas, das man genau dann sucht, wenn man auf diese Liste sieht
+        // und sie zu voll findet.
+        render(<InboxPage {...daten()} {...basis} />);
+
+        const knopf = screen.getByRole('link', { name: /Einstellungen/ });
+
+        expect(knopf.getAttribute('href')).toBe('/settings/notifications');
+    });
+
+    it('bleibt weg, wenn ein Produkt die Maske nicht hat', () => {
+        // Ein Knopf, der ins Leere fuehrt, ist schlechter als keiner.
+        //
+        // Nach dem TEXT suchen, nicht nach der Link-Rolle: Ein `<a>` ohne
+        // `href` hat gar keine Rolle `link`. Die erste Fassung dieser
+        // Pruefung bestand deshalb auch dann, wenn der Riegel ausgehebelt
+        // war — sie mass nichts.
+        render(<InboxPage {...daten()} {...basis} settingsHref={null} />);
+
+        expect(screen.queryByText('Einstellungen')).toBeNull();
+    });
 });

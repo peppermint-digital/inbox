@@ -193,6 +193,7 @@ function Zeile({
 }
 
 // resources/js/src/InboxPage.tsx
+import { Settings as Zahnrad } from "lucide-react";
 import { jsx as jsx3, jsxs as jsxs2 } from "react/jsx-runtime";
 function InboxPage({
   items,
@@ -205,6 +206,7 @@ function InboxPage({
   onOpen,
   renderActions,
   initialKind,
+  settingsHref = "/settings/notifications",
   title = "Posteingang",
   subtitle = "Alles, was auf dich wartet \u2014 aus allen Systemen"
 }) {
@@ -215,9 +217,22 @@ function InboxPage({
   const [offen, setOffen] = useState(initialKind ?? ersterMitInhalt);
   const sichtbar = useMemo(() => items.filter((i) => i.kind === offen), [items, offen]);
   return /* @__PURE__ */ jsxs2("div", { className: "space-y-4", children: [
-    /* @__PURE__ */ jsxs2("div", { children: [
-      /* @__PURE__ */ jsx3("h1", { className: "text-2xl font-semibold", children: title }),
-      /* @__PURE__ */ jsx3("p", { className: "text-sm text-muted-foreground", children: subtitle })
+    /* @__PURE__ */ jsxs2("div", { className: "flex flex-wrap items-start justify-between gap-3", children: [
+      /* @__PURE__ */ jsxs2("div", { children: [
+        /* @__PURE__ */ jsx3("h1", { className: "text-2xl font-semibold", children: title }),
+        /* @__PURE__ */ jsx3("p", { className: "text-sm text-muted-foreground", children: subtitle })
+      ] }),
+      settingsHref !== null && /* @__PURE__ */ jsxs2(
+        "a",
+        {
+          href: settingsHref,
+          className: "inline-flex shrink-0 items-center gap-2 rounded-md border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground",
+          children: [
+            /* @__PURE__ */ jsx3(Zahnrad, { className: "h-4 w-4" }),
+            /* @__PURE__ */ jsx3("span", { children: "Einstellungen" })
+          ]
+        }
+      )
     ] }),
     (unreachable.length > 0 || failed.length > 0) && // Eine still verkuerzte Liste sieht aus wie „da ist
     // nichts" — und dann sucht man im falschen System.
