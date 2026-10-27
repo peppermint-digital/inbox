@@ -4,6 +4,7 @@ namespace Peppermint\Inbox\Feed;
 
 use Peppermint\AiBrainBridge\Facades\AiBrain;
 use Peppermint\AiBrainBridge\Verbund\Bruecke;
+use RuntimeException;
 
 /**
  * Die Produkt-Seite: ueber die Bruecke beim AI Brain fragen.
@@ -49,5 +50,32 @@ class BridgeRemoteSource implements RemoteSource
         );
 
         return Auspacken::antwort(is_array($antwort) ? $antwort : []);
+    }
+
+    public function alsGelesen(string $slug, string $adresse, string $art, array $ids): int
+    {
+        if (! Bruecke::eingerichtet()) {
+            // Ohne Bruecke gibt es keine fremden Zeilen, also auch keine
+            // abzuhaken. Kaeme hier trotzdem eine an, waere die Herkunft
+            // falsch gesetzt — und das gehoert gesagt, nicht gezaehlt.
+            throw new RuntimeException('Keine Bruecke eingerichtet — eine fremde Zeile kann hier nicht abgehakt werden.');
+        }
+
+        if ($slug === self::HUB_SLUG) {
+            // Wie beim Holen: die Nabe direkt, nicht ueber ihren eigenen
+            // Gateway. Sie wuerde sich sonst selbst weiterreichen.
+            return Auspacken::abgehakt(
+                (array) AiBrain::call(Abhaken::TOOL, ['kind' => $art, 'ids' => $ids])
+            );
+        }
+
+        $antwort = AiBrain::gateway(
+            Abhaken::CAPABILITY,
+            ['kind' => $art, 'ids' => $ids],
+            $slug,
+            $adresse,
+        );
+
+        return Auspacken::abgehakt(is_array($antwort) ? $antwort : []);
     }
 }

@@ -29,7 +29,7 @@ class FremdeEintraege
     public function __construct(private readonly RemoteSource $quelle) {}
 
     /**
-     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, array<string, mixed>>, unreachable: array<int, string>, failed: array<int, string>}
+     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, array<string, mixed>>, unreachable: array<int, string>, failed: array<int, string>, totals: array<string, array<string, int>>, markable: array<string, array<int, string>>}
      */
     public function holen(string $adresse, int $grenze = 50): array
     {
@@ -37,6 +37,8 @@ class FremdeEintraege
         $arten = [];
         $stumm = [];
         $gescheitert = [];
+        $bestand = [];
+        $abhakbar = [];
 
         foreach ($this->quelle->anbieter() as $anbieter) {
             $schluessel = (string) ($anbieter['key'] ?? $anbieter['slug'] ?? '');
@@ -82,6 +84,15 @@ class FremdeEintraege
             foreach (($antwort['failed'] ?? []) as $art) {
                 $gescheitert[] = $wort.': '.$art;
             }
+
+            // Bestand und Abhakbarkeit JE SYSTEM, nicht zusammengelegt.
+            //
+            // Der Schluessel ist derselbe, der an den Zeilen als `source`
+            // steht: Die Oberflaeche muss von einer Zeile aus nachsehen
+            // koennen, ob an IHREM System ein Haken ankommt. Eine Summe
+            // ueber alle wuerde genau diese Frage nicht mehr beantworten.
+            $bestand[$schluessel] = $antwort['totals'] ?? [];
+            $abhakbar[$schluessel] = $antwort['markable'] ?? [];
         }
 
         return [
@@ -89,6 +100,8 @@ class FremdeEintraege
             'kinds' => array_values($arten),
             'unreachable' => $stumm,
             'failed' => $gescheitert,
+            'totals' => $bestand,
+            'markable' => $abhakbar,
         ];
     }
 }

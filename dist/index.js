@@ -1,5 +1,5 @@
 // resources/js/src/InboxPage.tsx
-import { useMemo, useState } from "react";
+import { useMemo, useState as useState2 } from "react";
 
 // resources/js/src/ui/utils.ts
 import { clsx } from "clsx";
@@ -193,12 +193,155 @@ function Zeile({
 }
 
 // resources/js/src/InboxPage.tsx
-import { Settings as Zahnrad } from "lucide-react";
-import { jsx as jsx3, jsxs as jsxs2 } from "react/jsx-runtime";
+import { Check, CheckCheck, Settings as Zahnrad } from "lucide-react";
+
+// resources/js/src/abhaken.ts
+function zeilenSchluessel(item) {
+  return `${item.source ?? ""}:${item.kind}:${item.id}`;
+}
+function darfAbhaken(item, markable) {
+  if (!item.is_unread || !markable) {
+    return false;
+  }
+  const arten = item.source ? markable.sources?.[item.source] ?? [] : markable.local ?? [];
+  return arten.includes(item.kind);
+}
+function istEigenAbhakbar(item, markable) {
+  return !item.source && darfAbhaken(item, markable);
+}
+function nochUngelesen(item, abgehakt, alleEigenenAbgehakt, markable) {
+  if (!item.is_unread || abgehakt.has(zeilenSchluessel(item))) {
+    return false;
+  }
+  return !(alleEigenenAbgehakt && istEigenAbhakbar(item, markable));
+}
+function bestandJeArt(totals) {
+  if (!totals) {
+    return {};
+  }
+  const summe = { ...totals.local ?? {} };
+  for (const jeArt of Object.values(totals.sources ?? {})) {
+    for (const [art, zahl] of Object.entries(jeArt ?? {})) {
+      summe[art] = (summe[art] ?? 0) + zahl;
+    }
+  }
+  return summe;
+}
+function eigenerBestandAbhakbar(totals, markable) {
+  if (!totals || !markable) {
+    return 0;
+  }
+  return (markable.local ?? []).reduce((summe, art) => summe + (totals.local?.[art] ?? 0), 0);
+}
+function hinweisZurListe(angezeigt, bestand) {
+  if (bestand <= angezeigt) {
+    return null;
+  }
+  return `Hier stehen die ${angezeigt} neuesten von ${bestand}.`;
+}
+
+// resources/js/src/useAbhaken.ts
+import { useCallback, useState } from "react";
+function csrfHeaders() {
+  if (typeof document === "undefined") {
+    return {};
+  }
+  const meta = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
+  if (meta) {
+    return { "X-CSRF-TOKEN": meta };
+  }
+  const cookie = document.cookie.split("; ").find((teil) => teil.startsWith("XSRF-TOKEN="))?.slice("XSRF-TOKEN=".length);
+  return cookie ? { "X-XSRF-TOKEN": decodeURIComponent(cookie) } : {};
+}
+function useAbhaken(options = {}) {
+  const { href = "/posteingang/gelesen", onChanged } = options;
+  const [abgehakt, setAbgehakt] = useState(() => /* @__PURE__ */ new Set());
+  const [alleEigenenAbgehakt, setAlleEigenenAbgehakt] = useState(false);
+  const [laeuft, setLaeuft] = useState(false);
+  const [fehler, setFehler] = useState(null);
+  const schreiben = useCallback(
+    async (nutzlast) => {
+      if (!href) {
+        return false;
+      }
+      setLaeuft(true);
+      setFehler(null);
+      try {
+        const antwort = await fetch(href, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+            ...csrfHeaders()
+          },
+          body: JSON.stringify(nutzlast)
+        });
+        if (antwort.status === 419) {
+          window.location.reload();
+          return false;
+        }
+        if (!antwort.ok) {
+          const daten = await antwort.json().catch(() => null);
+          setFehler(daten?.message ?? `Das Abhaken kam nicht an (${antwort.status}).`);
+          return false;
+        }
+        onChanged?.();
+        return true;
+      } catch (ursache) {
+        setFehler(ursache instanceof Error ? ursache.message : "Das Abhaken kam nicht an.");
+        return false;
+      } finally {
+        setLaeuft(false);
+      }
+    },
+    [href, onChanged]
+  );
+  const abhaken = useCallback(
+    async (zeilen) => {
+      if (zeilen.length === 0) {
+        return;
+      }
+      const erste = zeilen[0];
+      if (!erste) {
+        return;
+      }
+      const gleiche = zeilen.filter((z) => z.kind === erste.kind && (z.source ?? null) === (erste.source ?? null));
+      const erfolg = await schreiben({
+        source: erste.source ?? null,
+        kind: erste.kind,
+        ids: gleiche.map((z) => z.id)
+      });
+      if (erfolg) {
+        setAbgehakt((bisher) => {
+          const neu = new Set(bisher);
+          gleiche.forEach((z) => neu.add(zeilenSchluessel(z)));
+          return neu;
+        });
+      }
+      const rest = zeilen.filter((z) => !gleiche.includes(z));
+      if (rest.length > 0) {
+        await abhaken(rest);
+      }
+    },
+    [schreiben]
+  );
+  const alleEigenen = useCallback(async () => {
+    if (await schreiben({ alle: true })) {
+      setAlleEigenenAbgehakt(true);
+    }
+  }, [schreiben]);
+  return { abgehakt, alleEigenenAbgehakt, laeuft, fehler, abhaken, alleEigenen };
+}
+
+// resources/js/src/InboxPage.tsx
+import { Fragment, jsx as jsx3, jsxs as jsxs2 } from "react/jsx-runtime";
 function InboxPage({
   items,
   kinds,
   counts,
+  totals,
+  markable,
   unreachable,
   failed,
   labels,
@@ -207,32 +350,79 @@ function InboxPage({
   renderActions,
   initialKind,
   settingsHref = "/settings/notifications",
+  readHref = "/posteingang/gelesen",
+  onMarked,
   title = "Posteingang",
   subtitle = "Alles, was auf dich wartet \u2014 aus allen Systemen"
 }) {
+  const haken = useAbhaken({ href: readHref, onChanged: onMarked });
   const ersterMitInhalt = useMemo(
     () => kinds.find((k) => (counts[k.key] ?? 0) > 0)?.key ?? kinds[0]?.key ?? "",
     [kinds, counts]
   );
-  const [offen, setOffen] = useState(initialKind ?? ersterMitInhalt);
-  const sichtbar = useMemo(() => items.filter((i) => i.kind === offen), [items, offen]);
+  const [offen, setOffen] = useState2(initialKind ?? ersterMitInhalt);
+  const zeilen = useMemo(
+    () => items.map((item) => ({
+      ...item,
+      is_unread: nochUngelesen(item, haken.abgehakt, haken.alleEigenenAbgehakt, markable)
+    })),
+    [items, haken.abgehakt, haken.alleEigenenAbgehakt, markable]
+  );
+  const zahlen = useMemo(() => {
+    const angepasst = { ...counts };
+    items.forEach((item, i) => {
+      if (item.is_unread && zeilen[i]?.is_unread === false) {
+        angepasst[item.kind] = Math.max(0, (angepasst[item.kind] ?? 0) - 1);
+      }
+    });
+    return angepasst;
+  }, [counts, items, zeilen]);
+  const sichtbar = useMemo(() => zeilen.filter((i) => i.kind === offen), [zeilen, offen]);
+  const eigeneOffen = haken.alleEigenenAbgehakt ? 0 : eigenerBestandAbhakbar(totals, markable);
+  const satz = hinweisZurListe(sichtbar.length, bestandJeArt(totals)[offen] ?? 0);
   return /* @__PURE__ */ jsxs2("div", { className: "space-y-4", children: [
     /* @__PURE__ */ jsxs2("div", { className: "flex flex-wrap items-start justify-between gap-3", children: [
       /* @__PURE__ */ jsxs2("div", { children: [
         /* @__PURE__ */ jsx3("h1", { className: "text-2xl font-semibold", children: title }),
         /* @__PURE__ */ jsx3("p", { className: "text-sm text-muted-foreground", children: subtitle })
       ] }),
-      settingsHref !== null && /* @__PURE__ */ jsxs2(
-        "a",
-        {
-          href: settingsHref,
-          className: "inline-flex shrink-0 items-center gap-2 rounded-md border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground",
-          children: [
-            /* @__PURE__ */ jsx3(Zahnrad, { className: "h-4 w-4" }),
-            /* @__PURE__ */ jsx3("span", { children: "Einstellungen" })
-          ]
-        }
-      )
+      /* @__PURE__ */ jsxs2("div", { className: "flex shrink-0 flex-wrap items-center gap-2", children: [
+        readHref !== null && eigeneOffen > 0 && /* @__PURE__ */ jsxs2(
+          "button",
+          {
+            type: "button",
+            disabled: haken.laeuft,
+            onClick: () => void haken.alleEigenen(),
+            className: "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:opacity-60",
+            children: [
+              /* @__PURE__ */ jsx3(CheckCheck, { className: "h-4 w-4" }),
+              /* @__PURE__ */ jsxs2("span", { children: [
+                "Alle ",
+                eigeneOffen,
+                " eigenen als gelesen"
+              ] })
+            ]
+          }
+        ),
+        settingsHref !== null && /* @__PURE__ */ jsxs2(
+          "a",
+          {
+            href: settingsHref,
+            className: "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground",
+            children: [
+              /* @__PURE__ */ jsx3(Zahnrad, { className: "h-4 w-4" }),
+              /* @__PURE__ */ jsx3("span", { children: "Einstellungen" })
+            ]
+          }
+        )
+      ] })
+    ] }),
+    haken.fehler !== null && // Wer abhakt und es kommt nicht an, muss das sehen. Sonst
+    // steht die Zeile beim Neuladen wieder da — und der Fehler
+    // sieht aus wie der Fix.
+    /* @__PURE__ */ jsxs2("div", { role: "alert", className: "rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive", children: [
+      "Das Abhaken kam nicht an: ",
+      haken.fehler
     ] }),
     (unreachable.length > 0 || failed.length > 0) && // Eine still verkuerzte Liste sieht aus wie „da ist
     // nichts" — und dann sucht man im falschen System.
@@ -250,7 +440,7 @@ function InboxPage({
     ] }),
     /* @__PURE__ */ jsx3("div", { className: "flex flex-wrap gap-1 rounded-lg bg-muted/50 p-1", role: "tablist", children: kinds.map((art) => {
       const Symbol = inboxIcon(art.icon);
-      const zahl = counts[art.key] ?? 0;
+      const zahl = zahlen[art.key] ?? 0;
       const aktiv = art.key === offen;
       return /* @__PURE__ */ jsxs2(
         "button",
@@ -291,9 +481,27 @@ function InboxPage({
         localLabel: labels.local,
         sourceLabels: labels.sources,
         onOpen,
-        renderActions
+        renderActions: (eintrag) => /* @__PURE__ */ jsxs2(Fragment, { children: [
+          readHref !== null && darfAbhaken(eintrag, markable) && /* @__PURE__ */ jsx3(
+            "button",
+            {
+              type: "button",
+              title: "Als gelesen markieren",
+              "aria-label": "Als gelesen markieren",
+              disabled: haken.laeuft,
+              onClick: (event) => {
+                event.stopPropagation();
+                void haken.abhaken([eintrag]);
+              },
+              className: "inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-60",
+              children: /* @__PURE__ */ jsx3(Check, { className: "h-4 w-4" })
+            }
+          ),
+          renderActions?.(eintrag)
+        ] })
       }
-    ) })
+    ) }),
+    satz !== null && /* @__PURE__ */ jsx3("p", { className: "text-center text-xs text-muted-foreground", children: satz })
   ] });
 }
 export {
@@ -301,7 +509,15 @@ export {
   InboxPage,
   bekannteFarben,
   bekannteSymbole,
+  bestandJeArt,
+  darfAbhaken,
+  eigenerBestandAbhakbar,
+  hinweisZurListe,
   inboxIcon,
   inboxSurfaceClass,
-  inboxTextClass
+  inboxTextClass,
+  istEigenAbhakbar,
+  nochUngelesen,
+  useAbhaken,
+  zeilenSchluessel
 };

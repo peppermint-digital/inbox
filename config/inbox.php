@@ -30,6 +30,31 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Der Weg hinter dem Haken
+    |--------------------------------------------------------------------------
+    |
+    | Eine Route, die das Paket mitbringt. Bewusst unter `posteingang` und
+    | NICHT unter `inbox`: `/inbox` ist in der Verwaltung seit laengerem der
+    | Belege-Posteingang, `api/inbox` in allen drei Produkten vergeben.
+    | Dieselbe Verwechslung hat schon die Faehigkeit `inbox.list` gekostet.
+    |
+    | `middleware` ist die Stelle, an der die Autorisierung im PRODUKT
+    | bleibt: Wer die Seite nicht sehen darf, kommt auch hier nicht durch.
+    |
+    | `enabled` auf `false` fuer ein Produkt ohne abhakbare Quelle. Dann
+    | gehoert in der Ansicht `readHref={null}` dazu — sonst zeichnet sie
+    | einen Knopf, der ins Leere zeigt.
+    |
+    */
+    'route' => [
+        'enabled' => true,
+        'path' => 'posteingang/gelesen',
+        'name' => 'inbox.gelesen',
+        'middleware' => ['web', 'auth'],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Wie die Systeme heissen
     |--------------------------------------------------------------------------
     |

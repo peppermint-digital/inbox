@@ -4,6 +4,7 @@ namespace Peppermint\Inbox;
 
 use Illuminate\Support\ServiceProvider;
 use Peppermint\Inbox\Arten\InboxArten;
+use Peppermint\Inbox\Feed\Abhaken;
 use Peppermint\Inbox\Feed\BridgeRemoteSource;
 use Peppermint\Inbox\Feed\FremdeEintraege;
 use Peppermint\Inbox\Feed\GesamtInbox;
@@ -33,6 +34,7 @@ class InboxServiceProvider extends ServiceProvider
         $this->app->singleton(Quellenverzeichnis::class);
         $this->app->singleton(FremdeEintraege::class);
         $this->app->singleton(GesamtInbox::class);
+        $this->app->singleton(Abhaken::class);
 
         // Woher die fremden Eintraege kommen, entscheidet das aufnehmende
         // System: Ein Produkt fragt ueber die Bruecke, AI Brain ueber
@@ -46,5 +48,13 @@ class InboxServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__.'/../config/inbox.php' => config_path('inbox.php'),
         ], 'inbox-config');
+
+        // Die Route fuers Abhaken bringt das Paket mit — sonst schriebe
+        // jedes der vier Produkte dieselben Zeilen. Abschaltbar, weil ein
+        // Produkt ohne abhakbare Quelle sie nicht braucht; dann bleibt
+        // auch der Haken in der Ansicht weg (`readHref={null}`).
+        if ((bool) config('inbox.route.enabled', true)) {
+            $this->loadRoutesFrom(__DIR__.'/../routes/inbox.php');
+        }
     }
 }

@@ -6,11 +6,10 @@ use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
-use Peppermint\AiBrainBridge\Facades\AiBrain;
-use Peppermint\AiBrainBridge\Verbund\Bruecke;
 use Peppermint\Inbox\Arten\InboxArten;
 use Peppermint\Inbox\Feed\GesamtInbox;
 use Peppermint\Inbox\Feed\SourceLabels;
+use Peppermint\Inbox\Mcp\Concerns\FindetHandelndePerson;
 use Peppermint\Inbox\Quellen\Quellenverzeichnis;
 
 /**
@@ -43,6 +42,8 @@ use Peppermint\Inbox\Quellen\Quellenverzeichnis;
  */
 class ListInboxEntriesTool extends Tool
 {
+    use FindetHandelndePerson;
+
     protected string $description = 'List the inbox entries of the acting person in this system — tasks, notifications and whatever else this product contributes. Read-only; the caller merges them with its own.';
 
     public function handle(Request $request, Quellenverzeichnis $quellen): Response
@@ -57,6 +58,8 @@ class ListInboxEntriesTool extends Tool
                 'items' => [],
                 'kinds' => [],
                 'failed' => [],
+                'totals' => [],
+                'markable' => [],
             ]);
         }
 
@@ -81,6 +84,26 @@ class ListInboxEntriesTool extends Tool
             // sieht der Aufrufer nur eine kuerzere Liste — und das sieht
             // aus wie „da ist nichts", nicht wie ein Ausfall.
             'failed' => $gesammelt['failed'],
+            /*
+             * Der BESTAND je Art, nicht die Zahl der gelieferten Zeilen
+             * (#1096).
+             *
+             * Ohne diese Angabe sieht der Aufrufer 50 Zeilen und weiss
+             * nicht, dass 3953 dahinterstehen. Seine Ansicht sagt dann
+             * entweder nichts oder etwas Falsches — und beim Abarbeiten
+             * sinkt eine Zahl scheinbar nicht.
+             */
+            'totals' => $gesammelt['totals'],
+            /*
+             * An welchen Arten ein Haken hier ein Ziel findet.
+             *
+             * Der Aufrufer zeichnet den Knopf nur dort. Bis zum
+             * 27.10.2026 stand die Regel dafuer im Produkt und lautete
+             * „nur die eigenen Zeilen" — eine fremde Zeile hatte keinen
+             * Haken, weil niemand wusste, ob er ankommt. Jetzt sagt es
+             * das System, dem sie gehoert.
+             */
+            'markable' => $gesammelt['markable'],
             // KEIN Deckel ueber die Gesamtliste. Jede Quelle hat `$grenze`
             // bereits fuer SICH angewandt; ein zweiter Schnitt hier kappt
             // nach Anmelde-Reihenfolge statt nach Inhalt.
@@ -101,27 +124,5 @@ class ListInboxEntriesTool extends Tool
             'limit' => $schema->integer()
                 ->description('How many at most, per kind. Default 100, maximum 500.'),
         ];
-    }
-
-    /**
-     * Die handelnde Person — oder `null`.
-     *
-     * Die Bruecke setzt sie aus der Kopfzeile des Aufrufs; ohne Bruecke ist
-     * es die angemeldete Person. Beides abzufragen kostet nichts und macht
-     * das Werkzeug auch ohne Hub benutzbar.
-     */
-    private function handelnde(): mixed
-    {
-        if (Bruecke::eingerichtet()) {
-            $adresse = AiBrain::actingUserEmail();
-
-            if (is_string($adresse) && trim($adresse) !== '') {
-                $modell = (string) config('inbox.user_model');
-
-                return $modell::query()->where('email', $adresse)->first();
-            }
-        }
-
-        return auth()->user();
     }
 }

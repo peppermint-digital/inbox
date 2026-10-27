@@ -40,7 +40,7 @@ class GesamtInbox
     ) {}
 
     /**
-     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, array<string, mixed>>, counts: array<string, int>, unreachable: array<int, string>, failed: array<int, string>, labels: array{local: string, sources: array<string, string>}}
+     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, array<string, mixed>>, counts: array<string, int>, totals: array{local: array<string, int>, sources: array<string, array<string, int>>}, markable: array{local: array<int, string>, sources: array<string, array<int, string>>}, unreachable: array<int, string>, failed: array<int, string>, labels: array{local: string, sources: array<string, string>}}
      */
     public function for(Model $person, bool $frisch = false): array
     {
@@ -61,7 +61,36 @@ class GesamtInbox
         return [
             'items' => $zeilen,
             'kinds' => $this->arten->alle($eigen['kinds'], $fremd['kinds']),
+            // Was in DIESER Liste ungelesen ist — daran haengen die Zahlen
+            // an den Reitern.
             'counts' => $this->zaehlen($zeilen),
+            /*
+             * Der BESTAND, getrennt nach Herkunft (#1096).
+             *
+             * Bis zum 26.10.2026 hiess beides `counts`, und die Kachel in
+             * der Kopfzeile holte ihre Zahl aus einem zweiten Endpunkt.
+             * Dann stand dort 3953 gegen 50 Zeilen, nichts erklaerte die
+             * Luecke, und beim Abarbeiten sank die Zahl scheinbar nicht —
+             * die Seite sah kaputt aus. Zwei Fragen, zwei Felder, eine
+             * Quelle: Daraus kann die Ansicht „N von M" sagen.
+             */
+            'totals' => [
+                'local' => $eigen['totals'],
+                'sources' => $fremd['totals'],
+            ],
+            /*
+             * Wo ein Haken ein Ziel findet.
+             *
+             * Die Ansicht raet das nicht. Bis zum 27.10.2026 stand die
+             * Entscheidung im Produkt („von hier, ungelesen, Art
+             * notification") — eine Regel, die jedes der vier Produkte
+             * haette abschreiben muessen, und die bei einer neuen
+             * abhakbaren Quelle still falsch geworden waere.
+             */
+            'markable' => [
+                'local' => $eigen['markable'],
+                'sources' => $fremd['markable'],
+            ],
             'unreachable' => $fremd['unreachable'],
             // Eigene Quellen, die gerade nicht konnten. Eine andere Lage als
             // „System nicht erreichbar", deshalb ein eigenes Feld.
@@ -152,7 +181,7 @@ class GesamtInbox
     }
 
     /**
-     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, array<string, mixed>>, unreachable: array<int, string>, failed: array<int, string>}
+     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, array<string, mixed>>, unreachable: array<int, string>, failed: array<int, string>, totals: array<string, array<string, int>>, markable: array<string, array<int, string>>}
      */
     private function fremdeZeilen(Model $person, int $grenze, bool $frisch): array
     {
@@ -160,7 +189,7 @@ class GesamtInbox
 
         if (! is_string($adresse) || trim($adresse) === '') {
             // Ohne Adresse kann kein anderes System den Menschen finden.
-            return ['items' => [], 'kinds' => [], 'unreachable' => [], 'failed' => []];
+            return ['items' => [], 'kinds' => [], 'unreachable' => [], 'failed' => [], 'totals' => [], 'markable' => []];
         }
 
         $schluessel = 'inbox.fremde.'.sha1($adresse);
@@ -169,10 +198,17 @@ class GesamtInbox
             Cache::forget($schluessel);
         }
 
-        return Cache::remember(
-            $schluessel,
-            self::HALTBAR,
-            fn (): array => $this->fremde->holen($adresse, $grenze),
+        // Der Puffer kann eine Antwort in der ALTEN Form enthalten — er
+        // haelt eine Minute, und die ueberlebt jedes Ausrollen. Die
+        // Vorgaben hier kosten nichts und ersparen ein „undefined" in der
+        // Oberflaeche in genau der Minute, in der jemand nachsieht.
+        return array_merge(
+            ['items' => [], 'kinds' => [], 'unreachable' => [], 'failed' => [], 'totals' => [], 'markable' => []],
+            Cache::remember(
+                $schluessel,
+                self::HALTBAR,
+                fn (): array => $this->fremde->holen($adresse, $grenze),
+            ),
         );
     }
 

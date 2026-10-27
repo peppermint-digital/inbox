@@ -2,8 +2,10 @@ import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { InboxList } from './InboxList';
 import { inboxIcon } from './icons';
-import { Settings as Zahnrad } from 'lucide-react';
+import { Check, CheckCheck, Settings as Zahnrad } from 'lucide-react';
 import { cn } from './ui/utils';
+import { bestandJeArt, darfAbhaken, eigenerBestandAbhakbar, hinweisZurListe, nochUngelesen } from './abhaken';
+import { useAbhaken } from './useAbhaken';
 import type { InboxData, InboxItem } from './types';
 
 interface Props extends InboxData {
@@ -19,6 +21,22 @@ interface Props extends InboxData {
      * blendet den Knopf aus — fuer ein Produkt, das die Maske nicht hat.
      */
     settingsHref?: string | null;
+    /**
+     * Wohin das Abhaken schreibt.
+     *
+     * Die Vorgabe ist die Route, die das Paket selbst mitbringt. `null`
+     * schaltet das Abhaken ab — fuer ein Produkt, das die Route nicht
+     * laedt (`inbox.route.enabled`).
+     */
+    readHref?: string | null;
+    /**
+     * Nach dem Abhaken — fuer ein Produkt, das seine Liste frisch holt.
+     *
+     * Optional: Die Seite stimmt auch ohne. Mit Inertia gehoert hier
+     * `router.reload({ only: [...] })` hin, dann sind auch die Zahlen
+     * wieder vom Server.
+     */
+    onMarked?: () => void;
     title?: string;
     subtitle?: string;
 }
@@ -39,11 +57,26 @@ interface Props extends InboxData {
  * „Keine offenen Aufgaben" ist eine Aussage; ein fehlender Reiter ist
  * keine. Wer den Reiter gestern gesehen hat und heute nicht mehr, sucht
  * den Fehler bei sich.
+ *
+ * ## Und warum hier jetzt ein Haken haengt (Bug #1096)
+ *
+ * Lange stand hier nichts dergleichen, mit guter Begruendung: Die Liste
+ * zeigt zum grossen Teil Zeilen aus anderen Systemen, und dort faende ein
+ * „gelesen" kein Ziel. Die Begruendung gilt weiter — sie ist nur jetzt
+ * eine Frage an den Server statt einer Annahme in der Ansicht. Wo
+ * `markable` eine Art nennt, gibt es drueben eine abhakbare Quelle; wo
+ * nicht, bleibt der Knopf weg.
+ *
+ * Bastian hat die Luecke am 26.10.2026 so gemeldet: „die roten bleiben
+ * immer da, man kann nichts anklicken." Der Satz beschrieb kein Versehen
+ * in der Technik, sondern eine Oberflaeche ohne Griff.
  */
 export function InboxPage({
     items,
     kinds,
     counts,
+    totals,
+    markable,
     unreachable,
     failed,
     labels,
@@ -52,9 +85,13 @@ export function InboxPage({
     renderActions,
     initialKind,
     settingsHref = '/settings/notifications',
+    readHref = '/posteingang/gelesen',
+    onMarked,
     title = 'Posteingang',
     subtitle = 'Alles, was auf dich wartet — aus allen Systemen',
 }: Props) {
+    const haken = useAbhaken({ href: readHref, onChanged: onMarked });
+
     const ersterMitInhalt = useMemo(
         () => kinds.find((k) => (counts[k.key] ?? 0) > 0)?.key ?? kinds[0]?.key ?? '',
         [kinds, counts],
@@ -62,7 +99,48 @@ export function InboxPage({
 
     const [offen, setOffen] = useState(initialKind ?? ersterMitInhalt);
 
-    const sichtbar = useMemo(() => items.filter((i) => i.kind === offen), [items, offen]);
+    /*
+     * Die Liste mit dem, was in dieser Sitzung schon abgehakt wurde.
+     *
+     * Sie kommt als Server-Eigenschaft und weiss von einem Klick nichts.
+     * Ohne diesen Zwischenstand blieb die Zeile rot stehen, und der Fix
+     * sah genauso aus wie der Fehler.
+     */
+    const zeilen = useMemo(
+        () =>
+            items.map((item) => ({
+                ...item,
+                is_unread: nochUngelesen(item, haken.abgehakt, haken.alleEigenenAbgehakt, markable),
+            })),
+        [items, haken.abgehakt, haken.alleEigenenAbgehakt, markable],
+    );
+
+    // Die Zahlen an den Reitern kommen vom Server (sie zaehlen die Liste)
+    // und werden um das verringert, was seither abgehakt wurde. Neu
+    // auszuzaehlen waere falsch: Eine Zeile, die beim Laden schon gelesen
+    // war, zaehlt in `counts` nicht mit.
+    const zahlen = useMemo(() => {
+        const angepasst: Record<string, number> = { ...counts };
+
+        items.forEach((item, i) => {
+            if (item.is_unread && zeilen[i]?.is_unread === false) {
+                angepasst[item.kind] = Math.max(0, (angepasst[item.kind] ?? 0) - 1);
+            }
+        });
+
+        return angepasst;
+    }, [counts, items, zeilen]);
+
+    const sichtbar = useMemo(() => zeilen.filter((i) => i.kind === offen), [zeilen, offen]);
+
+    // „Alle eigenen" nennt seine Zahl. Ein Knopf, der „alle" verspricht
+    // und einen Teil erledigt, ist schlimmer als einer, der sagt, wie
+    // viele er nimmt — was in einem anderen System liegt, bleibt dort.
+    const eigeneOffen = haken.alleEigenenAbgehakt ? 0 : eigenerBestandAbhakbar(totals, markable);
+
+    // Der Satz unter der Liste, und zwar fuer die Art, die offen ist:
+    // Die Liste zeigt die neuesten, der Bestand kann weit darueber liegen.
+    const satz = hinweisZurListe(sichtbar.length, bestandJeArt(totals)[offen] ?? 0);
 
     return (
         <div className="space-y-4">
@@ -72,21 +150,44 @@ export function InboxPage({
                     <p className="text-sm text-muted-foreground">{subtitle}</p>
                 </div>
 
-                {/* Der Weg zu den Einstellungen gehoert HIERHER.
-                    Bisher fuehrte er ueber Avatar → Settings → den Reiter
-                    „Benachrichtigungen" zwischen sechs anderen. Drei Klicks
-                    fuer etwas, das man genau in dem Moment sucht, in dem
-                    man auf diese Liste sieht und sie zu voll findet. */}
-                {settingsHref !== null && (
-                    <a
-                        href={settingsHref}
-                        className="inline-flex shrink-0 items-center gap-2 rounded-md border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-                    >
-                        <Zahnrad className="h-4 w-4" />
-                        <span>Einstellungen</span>
-                    </a>
-                )}
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    {readHref !== null && eigeneOffen > 0 && (
+                        <button
+                            type="button"
+                            disabled={haken.laeuft}
+                            onClick={() => void haken.alleEigenen()}
+                            className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:opacity-60"
+                        >
+                            <CheckCheck className="h-4 w-4" />
+                            <span>Alle {eigeneOffen} eigenen als gelesen</span>
+                        </button>
+                    )}
+
+                    {/* Der Weg zu den Einstellungen gehoert HIERHER.
+                        Bisher fuehrte er ueber Avatar → Settings → den Reiter
+                        „Benachrichtigungen" zwischen sechs anderen. Drei Klicks
+                        fuer etwas, das man genau in dem Moment sucht, in dem
+                        man auf diese Liste sieht und sie zu voll findet. */}
+                    {settingsHref !== null && (
+                        <a
+                            href={settingsHref}
+                            className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                        >
+                            <Zahnrad className="h-4 w-4" />
+                            <span>Einstellungen</span>
+                        </a>
+                    )}
+                </div>
             </div>
+
+            {haken.fehler !== null && (
+                // Wer abhakt und es kommt nicht an, muss das sehen. Sonst
+                // steht die Zeile beim Neuladen wieder da — und der Fehler
+                // sieht aus wie der Fix.
+                <div role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    Das Abhaken kam nicht an: {haken.fehler}
+                </div>
+            )}
 
             {(unreachable.length > 0 || failed.length > 0) && (
                 // Eine still verkuerzte Liste sieht aus wie „da ist
@@ -100,7 +201,7 @@ export function InboxPage({
             <div className="flex flex-wrap gap-1 rounded-lg bg-muted/50 p-1" role="tablist">
                 {kinds.map((art) => {
                     const Symbol = inboxIcon(art.icon);
-                    const zahl = counts[art.key] ?? 0;
+                    const zahl = zahlen[art.key] ?? 0;
                     const aktiv = art.key === offen;
 
                     return (
@@ -145,9 +246,36 @@ export function InboxPage({
                     localLabel={labels.local}
                     sourceLabels={labels.sources}
                     onOpen={onOpen}
-                    renderActions={renderActions}
+                    renderActions={(eintrag) => (
+                        <>
+                            {readHref !== null && darfAbhaken(eintrag, markable) && (
+                                <button
+                                    type="button"
+                                    title="Als gelesen markieren"
+                                    aria-label="Als gelesen markieren"
+                                    disabled={haken.laeuft}
+                                    onClick={(event) => {
+                                        // Sonst oeffnet derselbe Klick die Zeile,
+                                        // und die Seite ist weg, bevor man sieht,
+                                        // dass markiert wurde.
+                                        event.stopPropagation();
+                                        void haken.abhaken([eintrag]);
+                                    }}
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-60"
+                                >
+                                    <Check className="h-4 w-4" />
+                                </button>
+                            )}
+                            {/* Was nur EIN Produkt an einer Zeile kann, bleibt
+                                beim Produkt. Der Haken ist das Gegenteil: Er
+                                waere in allen vier derselbe Code. */}
+                            {renderActions?.(eintrag)}
+                        </>
+                    )}
                 />
             </div>
+
+            {satz !== null && <p className="text-center text-xs text-muted-foreground">{satz}</p>}
         </div>
     );
 }

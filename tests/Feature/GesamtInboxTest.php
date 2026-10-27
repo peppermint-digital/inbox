@@ -7,8 +7,10 @@ use Peppermint\Inbox\Arten\InboxArten;
 use Peppermint\Inbox\Feed\Eintrag;
 use Peppermint\Inbox\Feed\FremdeEintraege;
 use Peppermint\Inbox\Feed\GesamtInbox;
+use Peppermint\Inbox\Quellen\AbhakbareQuelle;
 use Peppermint\Inbox\Quellen\InboxQuelle;
 use Peppermint\Inbox\Quellen\Quellenverzeichnis;
+use Peppermint\Inbox\Quellen\ZaehlbareQuelle;
 use Peppermint\Inbox\Tests\Support\User;
 
 /**
@@ -30,6 +32,68 @@ beforeEach(function (): void {
 
     $this->ich = User::create(['name' => 'Ich', 'email' => 'ich@beispiel.test']);
 });
+
+/**
+ * Eine eigene Quelle, die ihren BESTAND kennt.
+ *
+ * Der Fall, der die Trennung von `counts` und `totals` ueberhaupt noetig
+ * macht: Sie zeigt wenige Zeilen und hat viele.
+ */
+function zaehlbareQuelle(string $art, array $eintraege, int $bestand): ZaehlbareQuelle
+{
+    return new class($art, $eintraege, $bestand) implements ZaehlbareQuelle
+    {
+        public function __construct(
+            private string $art,
+            private array $eintraege,
+            private int $bestand,
+        ) {}
+
+        public function art(): string
+        {
+            return $this->art;
+        }
+
+        public function eintraege(Model $person, int $grenze): array
+        {
+            return array_slice($this->eintraege, 0, $grenze);
+        }
+
+        public function ungelesenGesamt(Model $person): int
+        {
+            return $this->bestand;
+        }
+    };
+}
+
+/** Eine eigene Quelle, an deren Zeilen ein Haken ein Ziel findet. */
+function gesamtAbhakbareQuelle(string $art, array $eintraege): AbhakbareQuelle
+{
+    return new class($art, $eintraege) implements AbhakbareQuelle
+    {
+        public function __construct(private string $art, private array $eintraege) {}
+
+        public function art(): string
+        {
+            return $this->art;
+        }
+
+        public function eintraege(Model $person, int $grenze): array
+        {
+            return array_slice($this->eintraege, 0, $grenze);
+        }
+
+        public function alsGelesen(Model $person, array $ids): int
+        {
+            return count($ids);
+        }
+
+        public function allesAlsGelesen(Model $person): int
+        {
+            return count($this->eintraege);
+        }
+    };
+}
 
 /** Eine eigene Quelle mit festen Zeilen. */
 function eigeneQuelle(string $art, array $eintraege, ?Throwable $wirft = null): InboxQuelle
@@ -70,7 +134,7 @@ function eintrag(string $art, string $titel, array $u = []): Eintrag
 }
 
 /** Die Holer-Seite durch feste Antworten ersetzen. */
-function fremdeLiefern(array $zeilen, array $arten = [], array $stumm = [], array $gescheitert = []): void
+function fremdeLiefern(array $zeilen, array $arten = [], array $stumm = [], array $gescheitert = [], array $bestand = [], array $abhakbar = []): void
 {
     $attrappe = Mockery::mock(FremdeEintraege::class);
     $attrappe->shouldReceive('holen')->andReturn([
@@ -78,6 +142,8 @@ function fremdeLiefern(array $zeilen, array $arten = [], array $stumm = [], arra
         'kinds' => $arten,
         'unreachable' => $stumm,
         'failed' => $gescheitert,
+        'totals' => $bestand,
+        'markable' => $abhakbar,
     ]);
 
     app()->instance(FremdeEintraege::class, $attrappe);
@@ -262,4 +328,96 @@ it('kappt im Werkzeug NICHT ueber die Gesamtliste', function (): void {
 
     // Beide Arten vollstaendig: 80 Zeilen, nicht 50.
     expect($h)->toBe(['aufgabe' => 40, 'meldung' => 40]);
+});
+
+it('trennt „in dieser Liste" vom BESTAND', function (): void {
+    /*
+     * Der Fehler, der die Seite kaputt aussehen liess (#1096): Am
+     * 26.10.2026 nannte die Kachel in der Kopfzeile 3953 und die Liste
+     * zeigte 50 Zeilen — zwei Bedeutungen unter einem Namen, und beim
+     * Abarbeiten sank die Zahl scheinbar nicht.
+     *
+     * `counts` ist seither die Liste, `totals` der Bestand. Nur so kann
+     * die Ansicht „N von M" sagen.
+     */
+    config(['inbox.max_items' => 2]);
+
+    app(Quellenverzeichnis::class)->anmelden(
+        zaehlbareQuelle('meldung', [
+            eintrag('meldung', 'Eine'),
+            eintrag('meldung', 'Zwei'),
+            eintrag('meldung', 'Drei'),
+        ], bestand: 3953)
+    );
+    fremdeLiefern([]);
+
+    $inbox = app(GesamtInbox::class)->for($this->ich);
+
+    expect($inbox['counts']['meldung'])->toBe(2)
+        ->and($inbox['totals']['local']['meldung'])->toBe(3953);
+});
+
+it('nimmt fuer eine Quelle ohne eigene Zaehlung das Gezeigte als Bestand', function (): void {
+    // Nie zu VIEL: Eine Zahl, die kleiner ist als die Wahrheit, verspricht
+    // nichts, was die Liste nicht halten kann. Eine zu grosse waere genau
+    // die Luecke, die niemand erklaeren konnte.
+    app(Quellenverzeichnis::class)->anmelden(eigeneQuelle('aufgabe', [
+        eintrag('aufgabe', 'Offen'),
+        eintrag('aufgabe', 'Schon gesehen', ['ungelesen' => false]),
+    ]));
+    fremdeLiefern([]);
+
+    expect(app(GesamtInbox::class)->for($this->ich)['totals']['local']['aufgabe'])->toBe(1);
+});
+
+it('haelt den Bestand der anderen Systeme je Herkunft auseinander', function (): void {
+    // Je System, nicht zusammengelegt: Die Oberflaeche muss von einer
+    // Zeile aus nachsehen koennen, wie viele IHR System noch hat.
+    fremdeLiefern(
+        [fremdeZeile()],
+        [['key' => 'meldung', 'label' => 'Benachrichtigungen']],
+        bestand: ['peppermint-crm' => ['meldung' => 40]],
+    );
+
+    expect(app(GesamtInbox::class)->for($this->ich)['totals']['sources'])
+        ->toBe(['peppermint-crm' => ['meldung' => 40]]);
+});
+
+it('sagt, wo ein Haken ein Ziel findet — hier und drueben', function (): void {
+    /*
+     * Die Ansicht raet das nicht. Bis zum 27.10.2026 stand die Regel im
+     * Produkt („von hier, ungelesen, Art notification") — eine Regel, die
+     * jedes der vier Produkte haette abschreiben muessen und die bei einer
+     * neuen abhakbaren Quelle still falsch geworden waere.
+     */
+    app(Quellenverzeichnis::class)->anmeldenViele([
+        gesamtAbhakbareQuelle('meldung', [eintrag('meldung', 'Von hier')]),
+        eigeneQuelle('aufgabe', [eintrag('aufgabe', 'Nicht abhakbar')]),
+    ]);
+    fremdeLiefern(
+        [fremdeZeile()],
+        [['key' => 'meldung', 'label' => 'Benachrichtigungen']],
+        abhakbar: ['peppermint-crm' => ['meldung']],
+    );
+
+    $inbox = app(GesamtInbox::class)->for($this->ich);
+
+    expect($inbox['markable']['local'])->toBe(['meldung'])
+        ->and($inbox['markable']['sources'])->toBe(['peppermint-crm' => ['meldung']]);
+});
+
+it('gibt Bestand und Abhakbarkeit mit, was ueber die Systemgrenze geht', function (): void {
+    // `sammeln()` ist, was `list-inbox-entries-tool` herausgibt. Ohne
+    // diese beiden Felder sieht der Aufrufer 50 Zeilen und weiss nicht,
+    // dass 3953 dahinterstehen — und er weiss nicht, ob ein Haken an
+    // einer fremden Zeile ankommt.
+    app(Quellenverzeichnis::class)->anmeldenViele([
+        gesamtAbhakbareQuelle('meldung', [eintrag('meldung', 'Eine')]),
+        zaehlbareQuelle('aufgabe', [eintrag('aufgabe', 'Offen')], bestand: 77),
+    ]);
+
+    $gesammelt = app(Quellenverzeichnis::class)->sammeln($this->ich, 50);
+
+    expect($gesammelt['totals'])->toBe(['meldung' => 1, 'aufgabe' => 77])
+        ->and($gesammelt['markable'])->toBe(['meldung']);
 });

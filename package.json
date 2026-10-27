@@ -1,6 +1,6 @@
 {
     "name": "@peppermint-digital/inbox",
-    "version": "0.1.0",
+    "version": "0.5.0",
     "description": "Gemeinsame Inbox fuer die Peppermint-Systeme — eine Liste, viele Arten, alle Systeme",
     "license": "UNLICENSED",
     "type": "module",
