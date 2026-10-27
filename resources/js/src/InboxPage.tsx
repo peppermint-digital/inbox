@@ -245,7 +245,28 @@ export function InboxPage({
                     formatTime={formatTime}
                     localLabel={labels.local}
                     sourceLabels={labels.sources}
-                    onOpen={onOpen}
+                    onOpen={(eintrag) => {
+                        /*
+                         * Eine Zeile zu OEFFNEN heisst, sie gesehen zu haben
+                         * (#1096).
+                         *
+                         * Vorher navigierte der Klick nur, und die rote Zeile
+                         * stand beim Zurueckkommen wieder da — das war die
+                         * Haelfte von Bastians Satz „die roten bleiben immer
+                         * da". Ohne `await`: Die Marke soll den Seitenwechsel
+                         * nicht aufhalten, und sie ist auch dann richtig
+                         * gesetzt, wenn die Antwort erst nach dem Wechsel
+                         * eintrifft.
+                         *
+                         * Und bewusst HIER und nicht im Produkt: Es waere in
+                         * allen vier derselbe Code.
+                         */
+                        if (readHref !== null && darfAbhaken(eintrag, markable)) {
+                            void haken.abhaken([eintrag]);
+                        }
+
+                        onOpen(eintrag);
+                    }}
                     renderActions={(eintrag) => (
                         <>
                             {readHref !== null && darfAbhaken(eintrag, markable) && (

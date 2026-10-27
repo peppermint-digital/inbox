@@ -359,3 +359,52 @@ describe('Der Satz „N von M"', () => {
         expect(screen.queryByText(/Hier stehen die/)).toBeNull();
     });
 });
+
+describe('Eine Zeile oeffnen heisst, sie gesehen zu haben (#1096)', () => {
+    const markable = { local: ['aufgabe'], sources: {} };
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it('hakt sie beim Klick auf den Titel mit ab', async () => {
+        // Vorher navigierte der Klick nur, und die rote Zeile stand beim
+        // Zurueckkommen wieder da — das war die Haelfte von Bastians Satz
+        // „die roten bleiben immer da".
+        const geschickt: Array<unknown> = [];
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (_url: string, init: RequestInit) => {
+                geschickt.push(JSON.parse(String(init.body)));
+
+                return { ok: true, status: 200, json: async () => ({ marked: 1 }) };
+            }),
+        );
+
+        const oeffnen = vi.fn();
+
+        render(<InboxPage {...daten({ markable })} {...basis} onOpen={oeffnen} />);
+
+        fireEvent.click(screen.getByText('Angebot nachfassen'));
+
+        // Das Oeffnen wartet NICHT auf die Marke: Der Seitenwechsel soll
+        // nicht am Netz haengen.
+        expect(oeffnen).toHaveBeenCalledTimes(1);
+
+        await vi.waitFor(() => expect(geschickt).toEqual([{ source: null, kind: 'aufgabe', ids: ['1'] }]));
+    });
+
+    it('oeffnet eine nicht abhakbare Zeile ohne irgendetwas zu schicken', async () => {
+        const fetchen = vi.fn();
+        vi.stubGlobal('fetch', fetchen);
+
+        const oeffnen = vi.fn();
+
+        render(<InboxPage {...daten({ markable: { local: [], sources: {} } })} {...basis} onOpen={oeffnen} />);
+
+        fireEvent.click(screen.getByText('Angebot nachfassen'));
+
+        expect(oeffnen).toHaveBeenCalledTimes(1);
+        expect(fetchen).not.toHaveBeenCalled();
+    });
+});

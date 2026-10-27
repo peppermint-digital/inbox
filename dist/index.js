@@ -480,7 +480,12 @@ function InboxPage({
         formatTime,
         localLabel: labels.local,
         sourceLabels: labels.sources,
-        onOpen,
+        onOpen: (eintrag) => {
+          if (readHref !== null && darfAbhaken(eintrag, markable)) {
+            void haken.abhaken([eintrag]);
+          }
+          onOpen(eintrag);
+        },
         renderActions: (eintrag) => /* @__PURE__ */ jsxs2(Fragment, { children: [
           readHref !== null && darfAbhaken(eintrag, markable) && /* @__PURE__ */ jsx3(
             "button",

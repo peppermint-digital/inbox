@@ -117,6 +117,13 @@ Vorher stand diese Regel im Produkt und lautete „von hier, ungelesen, Art
 `notification`". Drei Produkte hätten sie abschreiben müssen, und bei einer
 neuen abhakbaren Quelle wäre sie still falsch geworden.
 
+### Eine Zeile öffnen heißt, sie gesehen zu haben
+
+Der Klick auf den Titel hakt sie mit ab — wo `markable` das zulässt, und ohne
+auf die Antwort zu warten: Der Seitenwechsel soll nicht am Netz hängen.
+Vorher navigierte der Klick nur, und die rote Zeile stand beim Zurückkommen
+wieder da.
+
 ### `counts` ist nicht `totals`
 
 Zwei Fragen, und sie hießen eine Zeit lang gleich:
