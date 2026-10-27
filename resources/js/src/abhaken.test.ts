@@ -133,7 +133,10 @@ describe('hinweisZurListe', () => {
         // Am 26.10.2026 standen dort 3953 gegen 50 Zeilen, und nichts
         // erklaerte den Unterschied — wer einzeln abarbeitet, sieht die
         // Zahl kaum sinken und haelt die Seite fuer kaputt.
-        expect(hinweisZurListe(50, 3953)).toBe('Hier stehen die 50 neuesten von 3953.');
+        // Zwei Einheiten, und der Satz benennt sie: Eine Zeile kann
+        // mehrere Eintraege buendeln (gemessen: 7 Meldungen, 1 Zeile).
+        // „50 von 3953" waere deshalb eine Gleichsetzung, die nicht stimmt.
+        expect(hinweisZurListe(50, 3953)).toBe('Hier stehen die 50 neuesten Zeilen von 3953 ungelesenen.');
     });
 
     it('schweigt, wenn beides zusammenpasst', () => {

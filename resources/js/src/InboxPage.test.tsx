@@ -350,7 +350,7 @@ describe('Der Satz „N von M"', () => {
             />,
         );
 
-        expect(screen.getByText('Hier stehen die 1 neuesten von 3953.')).toBeDefined();
+        expect(screen.getByText('Hier stehen die 1 neuesten Zeilen von 3953 ungelesenen.')).toBeDefined();
     });
 
     it('bleibt weg, wenn die Liste vollstaendig ist', () => {

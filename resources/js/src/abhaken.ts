@@ -123,6 +123,16 @@ export function eigenerBestandAbhakbar(totals?: InboxTotals, markable?: InboxMar
  * 50 Zeilen, und nichts erklärte den Unterschied — wer einzeln
  * abarbeitet, sieht die Zahl kaum sinken und hält die Seite für kaputt.
  *
+ * ## Warum „Zeilen von N ungelesenen" und nicht „N von M"
+ *
+ * Weil die beiden Zahlen nicht dasselbe zählen, und das ist Absicht. Eine
+ * Zeile kann mehrere Einträge **bündeln** — sieben gleichartige Meldungen
+ * werden zu einer. Gemessen im Meldungs-Paket: Bestand 7, Liste 1.
+ *
+ * Der Bestand zählt Einträge, weil „alle als gelesen" ebenfalls Einträge
+ * abhakt. Die Zahl am Knopf nennt damit, was er wirklich anfasst — und der
+ * Satz hier benennt beide Einheiten, statt sie gleichzusetzen.
+ *
  * `null`, wenn beides zusammenpasst: Ein Hinweis, der immer steht, wird
  * nicht gelesen. Er soll nur da sein, wenn er etwas erklärt.
  */
@@ -131,5 +141,5 @@ export function hinweisZurListe(angezeigt: number, bestand: number): string | nu
         return null;
     }
 
-    return `Hier stehen die ${angezeigt} neuesten von ${bestand}.`;
+    return `Hier stehen die ${angezeigt} neuesten Zeilen von ${bestand} ungelesenen.`;
 }

@@ -35,7 +35,17 @@ use Peppermint\Inbox\Feed\GesamtInbox;
 interface ZaehlbareQuelle extends InboxQuelle
 {
     /**
-     * Wie viele ungelesene Zeilen diese Person hier insgesamt hat.
+     * Wie viele ungelesene EINTRAEGE diese Person hier insgesamt hat.
+     *
+     * Eintraege, nicht Zeilen — der Unterschied ist groesser als die
+     * Kappung. Eine Zeile kann mehrere Eintraege buendeln: Im
+     * Meldungs-Paket werden sieben gleichartige Meldungen zu EINER Zeile,
+     * und `ungelesenGesamt()` sagt dort 7.
+     *
+     * Das ist die richtige Richtung, weil `allesAlsGelesen()` ebenfalls
+     * Eintraege abhakt und nicht Zeilen. Die Zahl am Knopf nennt damit,
+     * was er wirklich anfasst — und der Satz unter der Liste benennt beide
+     * Einheiten, statt sie gleichzusetzen.
      */
     public function ungelesenGesamt(Model $person): int;
 }

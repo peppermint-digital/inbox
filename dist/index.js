@@ -237,7 +237,7 @@ function hinweisZurListe(angezeigt, bestand) {
   if (bestand <= angezeigt) {
     return null;
   }
-  return `Hier stehen die ${angezeigt} neuesten von ${bestand}.`;
+  return `Hier stehen die ${angezeigt} neuesten Zeilen von ${bestand} ungelesenen.`;
 }
 
 // resources/js/src/useAbhaken.ts

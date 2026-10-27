@@ -128,9 +128,16 @@ Zwei Fragen, und sie hießen eine Zeit lang gleich:
 
 Am 26.10.2026 stand in der Kopfzeile 3953 gegen 50 Zeilen in der Liste, und
 nichts erklärte die Lücke — wer einzeln abarbeitet, sieht die Zahl kaum sinken
-und hält die Seite für kaputt. Aus beiden Feldern sagt die Ansicht jetzt „N
-von M", und die Kachel zieht aus derselben Quelle statt aus einem zweiten
-Endpunkt.
+und hält die Seite für kaputt. Jetzt steht unter der Liste ein Satz, der beide
+Zahlen verbindet, und die Kachel zieht aus derselben Quelle statt aus einem
+zweiten Endpunkt.
+
+**`totals` zählt Einträge, die Liste zeigt Zeilen** — und das ist nicht
+dasselbe, weil eine Zeile bündeln kann: Im Meldungs-Paket werden sieben
+gleichartige Meldungen zu **einer** Zeile, und der Bestand sagt dort 7.
+Einträge sind die richtige Einheit, weil „alle als gelesen" ebenfalls Einträge
+abhakt; die Zahl am Knopf nennt damit, was er wirklich anfasst. Der Satz unter
+der Liste benennt deshalb beide Einheiten, statt sie gleichzusetzen.
 
 ### Der Fehlschlag ist der wichtige Fall
 
