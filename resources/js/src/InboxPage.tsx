@@ -69,11 +69,18 @@ interface Props extends InboxData {
     /**
      * Die Rueckfrage vor „alle loeschen".
      *
-     * Vorgabe `window.confirm`. Als Prop, weil ein Produkt einen eigenen
-     * Dialog haben kann — und weil sich eine Rueckfrage sonst nicht
+     * Vorgabe `window.confirm`. Als Prop, weil dieses Paket in vier
+     * Anwendungen mit vier UI-Baukaesten haengt: Ein eigener Dialog waere
+     * hier entweder eine neue Abhaengigkeit oder einer, der neben den
+     * anderen fremd aussieht. Das Produkt bringt seinen mit.
+     *
+     * Darf ein Promise liefern — ein echter React-Dialog ist asynchron,
+     * `window.confirm` blockiert. Ohne das kaeme nur der native in Frage.
+     *
+     * Und als Prop auch deshalb, weil sich eine Rueckfrage sonst nicht
      * pruefen laesst, ohne den Browser zu fragen.
      */
-    confirm?: (frage: string) => boolean;
+    confirm?: (frage: string) => boolean | Promise<boolean>;
     title?: string;
     subtitle?: string;
 }
@@ -440,13 +447,23 @@ export function InboxPage({
                                 // Hoeflichkeit: Hier verschwinden auch die
                                 // GELESENEN, und bei Bastian waeren das
                                 // ueber 4000 Zeilen auf einen Klick.
-                                if (
-                                    fragen(
-                                        loeschFrage(wortDerArt, bestandDerArt, derArt.filter((i) => !i.source).length),
-                                    )
-                                ) {
-                                    void papierkorb.alleDerArt(offen);
-                                }
+                                //
+                                // `await`, weil ein gestalteter Dialog ein
+                                // Promise liefert. Synchron gelesen waere
+                                // `[object Promise]` wahr, und JEDE
+                                // Rueckfrage waere still uebergangen —
+                                // genau der Schutz, der hier zaehlt.
+                                void (async () => {
+                                    const frage = loeschFrage(
+                                        wortDerArt,
+                                        bestandDerArt,
+                                        derArt.filter((i) => !i.source).length,
+                                    );
+
+                                    if (await fragen(frage)) {
+                                        await papierkorb.alleDerArt(offen);
+                                    }
+                                })();
                             }}
                             className="inline-flex items-center gap-2 rounded-md border border-destructive/40 px-3 py-2 text-sm text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-60"
                         >

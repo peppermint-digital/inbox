@@ -650,11 +650,16 @@ function InboxPage({
             type: "button",
             disabled: papierkorb.laeuft,
             onClick: () => {
-              if (fragen(
-                loeschFrage(wortDerArt, bestandDerArt, derArt.filter((i) => !i.source).length)
-              )) {
-                void papierkorb.alleDerArt(offen);
-              }
+              void (async () => {
+                const frage = loeschFrage(
+                  wortDerArt,
+                  bestandDerArt,
+                  derArt.filter((i) => !i.source).length
+                );
+                if (await fragen(frage)) {
+                  await papierkorb.alleDerArt(offen);
+                }
+              })();
             },
             className: "inline-flex items-center gap-2 rounded-md border border-destructive/40 px-3 py-2 text-sm text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-60",
             children: [

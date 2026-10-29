@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, render, screen, fireEvent } from '@testing-library/react';
+import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // Ohne das bleibt der Baum der vorigen Pruefung stehen, und die naechste
@@ -584,7 +584,7 @@ describe('Löschen im gemeinsamen Posteingang (AI Brain #9069)', () => {
         expect(holen).toHaveBeenCalledWith('/posteingang/zeilen', expect.objectContaining({ method: 'DELETE' }));
     });
 
-    it('fragt vor „alle löschen" nach und nennt die Zahl', () => {
+    it('fragt vor „alle löschen" nach und nennt die Zahl', async () => {
         const holen = mitFetch();
         const fragen = vi.fn(() => true);
 
@@ -604,7 +604,63 @@ describe('Löschen im gemeinsamen Posteingang (AI Brain #9069)', () => {
         fireEvent.click(screen.getByText(/Alle meine .* löschen/));
 
         expect(fragen).toHaveBeenCalledWith(expect.stringContaining('4113'));
-        expect(holen).toHaveBeenCalled();
+        // `waitFor`, weil die Rueckfrage ein Promise liefern DARF (ein
+        // gestalteter Dialog ist asynchron) und das Loeschen deshalb erst
+        // danach laeuft.
+        await waitFor(() => expect(holen).toHaveBeenCalled());
+    });
+
+    it('wartet auf eine Rückfrage, die ein Promise liefert', async () => {
+        /*
+         * Der Grund, warum `confirm` ein Promise liefern darf: Ein
+         * gestalteter Dialog (AlertDialog) ist asynchron, `window.confirm`
+         * blockiert. Ohne `await` wäre `[object Promise]` wahr und JEDE
+         * Rückfrage still übergangen — bei über 4000 unwiderruflich
+         * gelöschten Zeilen genau der Schutz, der hier zählt.
+         */
+        const holen = mitFetch();
+
+        render(
+            <InboxPage
+                {...daten({
+                    items: [zeile({ kind: 'meldung' })],
+                    counts: { meldung: 1 },
+                    deletable: { local: ['meldung'] },
+                })}
+                {...basis}
+                confirm={() => Promise.resolve(true)}
+            />,
+        );
+
+        fireEvent.click(screen.getByText(/Alle meine .* löschen/));
+
+        await waitFor(() => expect(holen).toHaveBeenCalled());
+    });
+
+    it('löscht NICHT, wenn eine Promise-Rückfrage verneint wird', async () => {
+        // Die wichtigere Richtung: Ein „Abbrechen" im Dialog muss halten.
+        const holen = mitFetch();
+
+        render(
+            <InboxPage
+                {...daten({
+                    items: [zeile({ kind: 'meldung' })],
+                    counts: { meldung: 1 },
+                    deletable: { local: ['meldung'] },
+                })}
+                {...basis}
+                confirm={() => Promise.resolve(false)}
+            />,
+        );
+
+        fireEvent.click(screen.getByText(/Alle meine .* löschen/));
+
+        // Kurz warten, damit ein faelschlich gestartetes Loeschen Zeit
+        // haette anzukommen — sonst beweist „nicht aufgerufen" nur, dass
+        // die Pruefung schneller war.
+        await new Promise((fertig) => setTimeout(fertig, 20));
+
+        expect(holen).not.toHaveBeenCalled();
     });
 
     it('löscht NICHT, wenn die Rückfrage verneint wird', () => {

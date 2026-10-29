@@ -162,11 +162,18 @@ interface Props$1 extends InboxData {
     /**
      * Die Rueckfrage vor „alle loeschen".
      *
-     * Vorgabe `window.confirm`. Als Prop, weil ein Produkt einen eigenen
-     * Dialog haben kann — und weil sich eine Rueckfrage sonst nicht
+     * Vorgabe `window.confirm`. Als Prop, weil dieses Paket in vier
+     * Anwendungen mit vier UI-Baukaesten haengt: Ein eigener Dialog waere
+     * hier entweder eine neue Abhaengigkeit oder einer, der neben den
+     * anderen fremd aussieht. Das Produkt bringt seinen mit.
+     *
+     * Darf ein Promise liefern — ein echter React-Dialog ist asynchron,
+     * `window.confirm` blockiert. Ohne das kaeme nur der native in Frage.
+     *
+     * Und als Prop auch deshalb, weil sich eine Rueckfrage sonst nicht
      * pruefen laesst, ohne den Browser zu fragen.
      */
-    confirm?: (frage: string) => boolean;
+    confirm?: (frage: string) => boolean | Promise<boolean>;
     title?: string;
     subtitle?: string;
 }

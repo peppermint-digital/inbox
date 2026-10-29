@@ -304,7 +304,17 @@ Deshalb:
   „4113 Benachrichtigungen endgültig löschen?". Der Knopf heißt „Alle meine
   Benachrichtigungen löschen" und erscheint nur im Reiter dieser Art.
 - Die Rückfrage ist als `confirm`-Prop überschreibbar — für ein Produkt mit
-  eigenem Dialog, und damit sie sich testen lässt.
+  eigenem Dialog, und damit sie sich testen lässt. Sie darf ein **Promise**
+  liefern: Ein gestalteter Dialog (AlertDialog) ist asynchron, `window.confirm`
+  blockiert. Ohne das käme nur der native in Frage.
+
+  Dieses Paket bringt **keinen** Dialog mit, und das ist Absicht: Es hängt in
+  vier Anwendungen mit vier UI-Baukästen. Ein eigener wäre entweder eine neue
+  Abhängigkeit hier oder einer, der neben den anderen fremd aussieht.
+
+  Wer einen eigenen Dialog einhängt, baut zwei Dinge mit ein: **Abbrechen ist
+  vorausgewählt**, und ein Klick daneben bricht ab statt zu bestätigen. Das
+  native `confirm` kann beides von sich aus — ein gestalteter muss es lernen.
 
 ### Die Route
 
