@@ -312,9 +312,19 @@ Deshalb:
   vier Anwendungen mit vier UI-Baukästen. Ein eigener wäre entweder eine neue
   Abhängigkeit hier oder einer, der neben den anderen fremd aussieht.
 
-  Wer einen eigenen Dialog einhängt, baut zwei Dinge mit ein: **Abbrechen ist
-  vorausgewählt**, und ein Klick daneben bricht ab statt zu bestätigen. Das
-  native `confirm` kann beides von sich aus — ein gestalteter muss es lernen.
+  Wer einen eigenen Dialog einhängt, prüft drei Dinge **im Browser** statt sie
+  aus der Bibliothek zu schließen:
+
+  | | soll | warum |
+  |---|---|---|
+  | Fokus | auf *Abbrechen* | wer blind Enter drückt, löscht nichts |
+  | Esc | bricht ab | als „nein" aufgelöst, nicht als „ja" |
+  | Klick daneben | **wischt die Frage nicht weg** | bei einer unwiderruflichen Aktion soll sie beantwortet werden, nicht verschwinden |
+
+  Am 29.10.2026 stand hier „ein Klick daneben bricht ab". Das war eine
+  Behauptung über die Bibliothek, die niemand geprüft hatte — Radix' AlertDialog
+  schließt bei einem Klick daneben gar nicht (anders als sein `Dialog`).
+  Gelöscht wurde dabei trotzdem nichts; die Doku war falsch, nicht der Dialog.
 
 ### Die Route
 
