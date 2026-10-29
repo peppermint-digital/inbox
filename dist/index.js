@@ -172,11 +172,12 @@ function Zeile({
   const frisch = item.is_unread;
   const herkunft = item.source ? item.source_label ?? sourceLabels[item.source] ?? item.source : localLabel;
   const zusatz = Object.entries(item.meta ?? {}).filter(([, wert]) => wert !== null && wert !== "" && typeof wert !== "object").map(([, wert]) => String(wert));
+  const hatZiel = typeof item.link === "string" && item.link !== "";
   return /* @__PURE__ */ jsx2("div", { className: cn("group rounded-lg border p-3", frisch ? inboxSurfaceClass(item.color) : "transition-colors hover:bg-muted/30"), children: /* @__PURE__ */ jsxs("div", { className: "flex items-start gap-3", children: [
     /* @__PURE__ */ jsx2("div", { className: cn("mt-0.5 shrink-0 rounded-full p-1.5", frisch ? inboxSurfaceClass(item.color) : "bg-muted"), children: /* @__PURE__ */ jsx2(Symbol, { className: cn("h-4 w-4", frisch ? inboxTextClass(item.color) : "text-muted-foreground") }) }),
-    /* @__PURE__ */ jsxs("div", { className: "min-w-0 flex-1 cursor-pointer", onClick: () => onOpen(item), children: [
+    /* @__PURE__ */ jsxs("div", { className: cn("min-w-0 flex-1", hatZiel ? "cursor-pointer" : "cursor-default"), onClick: () => onOpen(item), children: [
       /* @__PURE__ */ jsxs("div", { className: "flex flex-wrap items-center gap-2", children: [
-        /* @__PURE__ */ jsx2("p", { className: cn("font-medium hover:underline", frisch ? inboxTextClass(item.color) : "truncate"), children: item.title }),
+        /* @__PURE__ */ jsx2("p", { className: cn("font-medium", hatZiel && "hover:underline", frisch ? inboxTextClass(item.color) : "truncate"), children: item.title }),
         /* @__PURE__ */ jsx2(Badge, { variant: "outline", children: herkunft })
       ] }),
       item.message && /* @__PURE__ */ jsx2("p", { className: "mt-1 line-clamp-2 text-xs text-muted-foreground", children: item.message }),

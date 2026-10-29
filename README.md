@@ -48,6 +48,31 @@ Verbund sich im Kreis und jede Zeile käme mehrfach an.
 Die Arten reisen mit. Führt ein System eine neue ein, erscheint sie in den
 anderen, ohne dass dort etwas zu tun wäre.
 
+### Der Verweis wird dabei absolut
+
+Was eine Quelle als Verweis schreibt, ist zu Hause richtig und nur dort.
+`list-inbox-entries-tool` legt deshalb `config('app.url')` davor, bevor die
+Zeile das System verlässt — idempotent, ein schon absoluter Verweis bleibt
+unberührt (`Feed\Verweise`).
+
+Bewusst **nicht** in `Quellenverzeichnis::sammeln()`: Dieselben Zeilen tragen
+die eigene Seite, und dort gehört der relative Verweis hin — er bleibt im
+Inertia-Fluss, und die Anwendung behält ihren Zustand.
+
+Und bewusst beim **Anbieter**: Nur er kennt seine eigene Adresse.
+`RemoteSource::anbieter()` nennt dem Empfänger Kürzel, Slug und Wort — keine
+Grundadresse. Er könnte sie also nur raten.
+
+Am 29.10.2026 kostete das Fehlen dieser Regel praktisch den ganzen
+Posteingang in drei von vier Systemen (AI Brain #1151): AI Brain gab
+`/bugs/1122`, `/avatar`, `/websites/21` heraus, und die antworteten auf
+`vw`, `crm` und `pm` mit 404. Der schlimmere Fall war `/tasks/9057` — Manager
+und CRM haben selbst eine Route `/tasks/{id}` und öffneten ihre **eigene**
+Aufgabe mit derselben Nummer.
+
+Eine Quelle darf ihren Verweis weiter absolut bauen; mehrere Produkte tun
+das. Nötig ist es nicht mehr.
+
 ## Zwei Fallen, in die diese Ansicht schon gelaufen ist
 
 **Global kappen.** Ein Deckel über die zusammengefügte Liste lässt das
@@ -163,6 +188,34 @@ hat schon die Fähigkeit `inbox.list` gekostet.
 
 Pfad, Name und Middleware stehen in `config/inbox.php`. Die Middleware ist
 die Stelle, an der die Autorisierung im Produkt bleibt.
+
+## Die Zahl am Symbol: `GET /posteingang/ungelesen`
+
+Der Posteingang hängt in der Kopfzeile und in der Minibar je an einem
+Symbol mit einer Zahl. Diese Route liefert sie, als
+`{"unread_count": n}` — den **globalen** Bestand über alle Arten und alle
+Systeme (`GesamtInbox::bestand()`).
+
+Bis zum 29.10.2026 holten beide Symbole ihre Zahl aus
+`/api/inbox/unread-count`, also aus `NotificationFeed::unreadCount()`: den
+ungelesenen **Meldungen dieses einen Systems**. Geöffnet haben sie aber den
+gemeinsamen Posteingang, in dem auch Aufgaben, Belege und imkr-Zeilen aus
+vier Systemen stehen. Die Zahl sprach über etwas anderes als die Seite
+dahinter (AI Brain #1152).
+
+Drei Dinge, die dabei absichtlich so sind:
+
+- **Der Bestand, nicht die Liste.** Die Liste ist je Art und System gekappt;
+  eine Zahl, die der Kappung folgte, stünde bei 50 und bliebe dort.
+- **Kein zweiter Rundruf.** Die eigenen Quellen nennen ihren Bestand ohne
+  Zeilen aufzubauen (`Quellenverzeichnis::bestand()`), die fremden kommen aus
+  **demselben** Zwischenspeicher wie die Seite. Die Zahl im Takt abzufragen
+  fragt also nicht vier Systeme, sondern liest mit.
+- **Ein Ausfall ist kein `0`.** Eine Null hieße „alles gelesen". Fällt die
+  Abfrage, kommt ein 503 ohne Zahl, und das Symbol lässt seinen letzten
+  bekannten Wert stehen.
+
+`route.enabled => false` schaltet **beide** Routen ab, also auch diese.
 
 ## Freigabe im Komm-Layer nicht vergessen
 

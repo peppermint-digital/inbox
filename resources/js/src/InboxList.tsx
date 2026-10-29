@@ -67,6 +67,21 @@ function Zeile({
         .filter(([, wert]) => wert !== null && wert !== '' && typeof wert !== 'object')
         .map(([, wert]) => String(wert));
 
+    /*
+     * Fuehrt diese Zeile irgendwohin? (AI Brain #1151)
+     *
+     * Der Klick bleibt in beiden Faellen: Er hakt die Zeile ab, und das
+     * ist auch ohne Ziel richtig. Was wegfaellt, ist das VERSPRECHEN
+     * eines Ziels — Zeigefinger und unterstrichener Titel.
+     *
+     * Bastians Satz dazu war „kann irgendwas nicht druecken". Genau das
+     * entsteht hier: 59 imkr-Zeilen haben kein Ziel (sie gehoeren zu einem
+     * Pane auf einem Rechner, zu keiner Seite), sahen aber aus wie ein
+     * Link und taten beim Klick scheinbar nichts. Eine Zeile, die nicht
+     * weiterfuehrt, soll das zeigen statt es zu verschweigen.
+     */
+    const hatZiel = typeof item.link === 'string' && item.link !== '';
+
     return (
         <div className={cn('group rounded-lg border p-3', frisch ? inboxSurfaceClass(item.color) : 'transition-colors hover:bg-muted/30')}>
             <div className="flex items-start gap-3">
@@ -74,9 +89,11 @@ function Zeile({
                     <Symbol className={cn('h-4 w-4', frisch ? inboxTextClass(item.color) : 'text-muted-foreground')} />
                 </div>
 
-                <div className="min-w-0 flex-1 cursor-pointer" onClick={() => onOpen(item)}>
+                <div className={cn('min-w-0 flex-1', hatZiel ? 'cursor-pointer' : 'cursor-default')} onClick={() => onOpen(item)}>
                     <div className="flex flex-wrap items-center gap-2">
-                        <p className={cn('font-medium hover:underline', frisch ? inboxTextClass(item.color) : 'truncate')}>{item.title}</p>
+                        <p className={cn('font-medium', hatZiel && 'hover:underline', frisch ? inboxTextClass(item.color) : 'truncate')}>
+                            {item.title}
+                        </p>
                         <Badge variant="outline">{herkunft}</Badge>
                     </div>
 

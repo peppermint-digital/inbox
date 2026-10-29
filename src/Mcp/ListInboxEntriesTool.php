@@ -9,6 +9,7 @@ use Laravel\Mcp\Server\Tool;
 use Peppermint\Inbox\Arten\InboxArten;
 use Peppermint\Inbox\Feed\GesamtInbox;
 use Peppermint\Inbox\Feed\SourceLabels;
+use Peppermint\Inbox\Feed\Verweise;
 use Peppermint\Inbox\Mcp\Concerns\FindetHandelndePerson;
 use Peppermint\Inbox\Quellen\Quellenverzeichnis;
 
@@ -39,6 +40,14 @@ use Peppermint\Inbox\Quellen\Quellenverzeichnis;
  * Ohne handelnde Person eine leere Liste und kein Fehler. Ein Eintrag
  * gehoert immer genau einem Menschen; ein Aufruf ohne Person koennte nur
  * „alle" meinen, und das waere ein Datenleck ueber Systemgrenzen hinweg.
+ *
+ * ## Hier werden die Verweise absolut (#1151)
+ *
+ * Und genau hier, nicht in {@see Quellenverzeichnis::sammeln()}: Dieselben
+ * Zeilen tragen die EIGENE Seite, und dort gehoert der relative Verweis hin.
+ * Diese Antwort dagegen verlaesst das System — und ein `/bugs/1122` meint
+ * drueben etwas anderes oder nichts. Begruendung und Messung stehen in
+ * {@see Verweise}.
  */
 class ListInboxEntriesTool extends Tool
 {
@@ -114,7 +123,10 @@ class ListInboxEntriesTool extends Tool
             // genau EINE Meldung durch, und in den anderen drei Systemen
             // fehlten seine 50 Meldungen vollstaendig. Ohne Fehler, ohne
             // Hinweis: Die Liste sah nur kuerzer aus.
-            'items' => $gesammelt['items'],
+            //
+            // Mit absoluten Verweisen, weil diese Liste das System
+            // verlaesst (#1151) — siehe Klassenkopf.
+            'items' => Verweise::absolut($gesammelt['items'], (string) config('app.url')),
         ]);
     }
 

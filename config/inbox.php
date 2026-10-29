@@ -30,10 +30,10 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Der Weg hinter dem Haken
+    | Der Weg hinter dem Haken und die Zahl am Symbol
     |--------------------------------------------------------------------------
     |
-    | Eine Route, die das Paket mitbringt. Bewusst unter `posteingang` und
+    | Zwei Routen, die das Paket mitbringt. Bewusst unter `posteingang` und
     | NICHT unter `inbox`: `/inbox` ist in der Verwaltung seit laengerem der
     | Belege-Posteingang, `api/inbox` in allen drei Produkten vergeben.
     | Dieselbe Verwechslung hat schon die Faehigkeit `inbox.list` gekostet.
@@ -43,13 +43,20 @@ return [
     |
     | `enabled` auf `false` fuer ein Produkt ohne abhakbare Quelle. Dann
     | gehoert in der Ansicht `readHref={null}` dazu — sonst zeichnet sie
-    | einen Knopf, der ins Leere zeigt.
+    | einen Knopf, der ins Leere zeigt. Achtung: Es schaltet BEIDE Routen
+    | ab, also auch die Zahl.
+    |
+    | `bestand_*` ist die globale Ungelesen-Zahl fuer das Posteingangs-
+    | Symbol und die Minibar-Kachel (#1152) — ueber alle Arten und Systeme,
+    | nicht nur die Meldungen dieses einen.
     |
     */
     'route' => [
         'enabled' => true,
         'path' => 'posteingang/gelesen',
         'name' => 'inbox.gelesen',
+        'bestand_path' => 'posteingang/ungelesen',
+        'bestand_name' => 'inbox.ungelesen',
         'middleware' => ['web', 'auth'],
     ],
 

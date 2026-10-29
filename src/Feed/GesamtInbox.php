@@ -100,6 +100,55 @@ class GesamtInbox
     }
 
     /**
+     * Wie viel insgesamt ungelesen wartet — ueber alle Arten und Systeme.
+     *
+     * ## Wofuer, und warum es nicht die Meldungs-Zahl ist
+     *
+     * Fuer die Zahl am Posteingangs-Symbol und an der Minibar-Kachel
+     * (AI Brain #1152). Beide holten sie bis zum 29.10.2026 aus
+     * `/api/inbox/unread-count`, und das ist `NotificationFeed::unreadCount()`
+     * — die Zahl der ungelesenen MELDUNGEN dieses einen Systems.
+     *
+     * Das Symbol oeffnet aber den gemeinsamen Posteingang, und dort stehen
+     * auch Aufgaben, Belege, Liegengebliebenes und imkr-Zeilen aus vier
+     * Systemen. Die Zahl sprach also ueber etwas anderes als die Seite, die
+     * sie aufmacht. Genau diese Art Widerspruch hat schon #1096 gekostet:
+     * Wer abarbeitet und die Zahl nicht sinken sieht, haelt die Seite fuer
+     * kaputt.
+     *
+     * ## Der Bestand, nicht die Liste
+     *
+     * Gezaehlt wird, was WARTET — nicht, was in der Liste steht. Die Liste
+     * ist je Art und System gekappt; eine Zahl, die der Kappung folgte,
+     * stuende bei 50 und bliebe dort.
+     *
+     * ## Kosten
+     *
+     * Die eigenen Quellen nennen ihren Bestand, ohne die Zeilen aufzubauen
+     * ({@see Quellenverzeichnis::bestand()}). Die fremden kommen aus
+     * DEMSELBEN Zwischenspeicher wie die Seite — derselbe Schluessel,
+     * dieselbe Minute. Die Zahl im Takt abzufragen fragt also nicht vier
+     * Systeme, sondern liest mit.
+     */
+    public function bestand(Model $person, bool $frisch = false): int
+    {
+        $grenze = $this->grenze();
+
+        $summe = array_sum($this->eigene->bestand($person, $grenze));
+
+        foreach ($this->fremdeZeilen($person, $grenze, $frisch)['totals'] as $jeSystem) {
+            // Ein System auf aelterem Paketstand schickt `totals` nicht
+            // mit. Dann fehlt sein Beitrag — und das ist die richtige
+            // Richtung: zu niedrig zaehlen heisst, dass jemand nachsieht
+            // und MEHR findet. Zu hoch zaehlen schickt ihn auf eine Suche
+            // nach etwas, das es nicht gibt.
+            $summe += array_sum(is_array($jeSystem) ? $jeSystem : []);
+        }
+
+        return (int) $summe;
+    }
+
+    /**
      * Die eigenen Zeilen tragen keine Herkunft.
      *
      * `null` heisst „von hier". Die Oberflaeche setzt dafuer das eigene

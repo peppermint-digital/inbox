@@ -421,3 +421,77 @@ it('gibt Bestand und Abhakbarkeit mit, was ueber die Systemgrenze geht', functio
     expect($gesammelt['totals'])->toBe(['meldung' => 1, 'aufgabe' => 77])
         ->and($gesammelt['markable'])->toBe(['meldung']);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Die globale Ungelesen-Zahl (AI Brain #1152)
+|--------------------------------------------------------------------------
+|
+| Die Zahl am Posteingangs-Symbol und an der Minibar-Kachel. Sie holte
+| bis zum 29.10.2026 die ungelesenen MELDUNGEN dieses einen Systems,
+| waehrend der Klick den gemeinsamen Posteingang aufmachte.
+|
+*/
+
+it('zaehlt den Bestand ueber alle Arten UND alle Systeme', function (): void {
+    app(Quellenverzeichnis::class)->anmeldenViele([
+        zaehlbareQuelle('meldung', [eintrag('meldung', 'Eine')], bestand: 4112),
+        eigeneQuelle('aufgabe', [eintrag('aufgabe', 'Offen'), eintrag('aufgabe', 'Auch offen')]),
+    ]);
+
+    fremdeLiefern(
+        [fremdeZeile()],
+        bestand: ['peppermint-crm' => ['meldung' => 12], 'peppermint-manager' => ['aufgabe' => 13, 'meldung' => 5]],
+    );
+
+    // 4112 eigene Meldungen + 2 eigene Aufgaben + 12 + 13 + 5 aus zwei
+    // fremden Systemen.
+    expect(app(GesamtInbox::class)->bestand($this->ich))->toBe(4144);
+});
+
+it('zaehlt den BESTAND und nicht die gezeigten Zeilen', function (): void {
+    // Die Liste ist je Art und System gekappt. Eine Zahl, die der Kappung
+    // folgte, stuende bei 50 und bliebe dort — genau die Luecke aus #1096,
+    // nur eine Ebene hoeher.
+    app(Quellenverzeichnis::class)->anmelden(
+        zaehlbareQuelle('meldung', [eintrag('meldung', 'Eine')], bestand: 3987)
+    );
+    fremdeLiefern([]);
+
+    expect(app(GesamtInbox::class)->bestand($this->ich))->toBe(3987);
+});
+
+it('zaehlt bei einer Quelle ohne Zaehl-Vertrag nur die UNGELESENEN', function (): void {
+    // Dieselbe Regel wie in `sammeln()`, und absichtlich dieselbe Stelle
+    // im Code: Zwei Rechnungen fuer dieselbe Zahl laufen auseinander, und
+    // dann widerspricht das Abzeichen der Seite, die es aufmacht.
+    app(Quellenverzeichnis::class)->anmelden(eigeneQuelle('aufgabe', [
+        eintrag('aufgabe', 'Offen'),
+        eintrag('aufgabe', 'Schon gesehen', ['ungelesen' => false]),
+    ]));
+    fremdeLiefern([]);
+
+    expect(app(GesamtInbox::class)->bestand($this->ich))->toBe(1);
+});
+
+it('zaehlt weiter, wenn eine eigene Quelle faellt', function (): void {
+    // Eine Null waere die falsche Aussage — sie hiesse „alles gelesen".
+    // Was ausfiel, kostet seinen Beitrag, nicht die Zahl.
+    app(Quellenverzeichnis::class)->anmeldenViele([
+        eigeneQuelle('aufgabe', [], wirft: new RuntimeException('Tabelle wandert')),
+        zaehlbareQuelle('meldung', [], bestand: 9),
+    ]);
+    fremdeLiefern([]);
+
+    expect(app(GesamtInbox::class)->bestand($this->ich))->toBe(9);
+});
+
+it('uebersieht ein System, das noch keinen Bestand mitschickt, ohne zu rechnen', function (): void {
+    // Ein Produkt auf aelterem Paketstand schickt `totals` nicht mit.
+    // Dann fehlt sein Beitrag, und das ist die richtige Richtung: Zu
+    // niedrig zaehlen heisst, dass jemand nachsieht und MEHR findet.
+    app(Quellenverzeichnis::class)->anmelden(zaehlbareQuelle('meldung', [], bestand: 4));
+    fremdeLiefern([fremdeZeile()], bestand: ['peppermint-crm' => []]);
+
+    expect(app(GesamtInbox::class)->bestand($this->ich))->toBe(4);
+});

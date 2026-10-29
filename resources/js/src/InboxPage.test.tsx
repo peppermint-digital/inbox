@@ -408,3 +408,61 @@ describe('Eine Zeile oeffnen heisst, sie gesehen zu haben (#1096)', () => {
         expect(fetchen).not.toHaveBeenCalled();
     });
 });
+
+describe('Zeile ohne Ziel (AI Brain #1151)', () => {
+    it('verspricht keinen Klick, wo kein Verweis ist', () => {
+        /*
+         * Bastians Satz dazu war „kann irgendwas nicht druecken". In
+         * Produktion betraf das alle 59 imkr-Zeilen: Sie gehoeren zu einem
+         * Pane auf einem Rechner und zu keiner Seite, sahen aber aus wie
+         * ein Link und taten beim Klick scheinbar nichts.
+         *
+         * Geprueft wird die GESTE, nicht die Farbe: Zeigefinger und
+         * unterstrichener Titel sind das Versprechen, das hier nicht
+         * eingehalten werden kann.
+         */
+        render(<InboxPage {...daten({ items: [zeile({ title: 'claude is done', link: null })] })} {...basis} />);
+
+        const titel = screen.getByText('claude is done');
+
+        expect(titel.className).not.toContain('hover:underline');
+        expect(titel.parentElement?.parentElement?.className).toContain('cursor-default');
+    });
+
+    it('verspricht den Klick, wo ein Verweis ist', () => {
+        render(<InboxPage {...daten({ items: [zeile({ link: 'https://pm.beispiel.test/tasks/42' })] })} {...basis} />);
+
+        const titel = screen.getByText('Angebot nachfassen');
+
+        expect(titel.className).toContain('hover:underline');
+        expect(titel.parentElement?.parentElement?.className).toContain('cursor-pointer');
+    });
+
+    it('hakt eine Zeile ohne Ziel trotzdem ab', () => {
+        /*
+         * Der Klick bleibt — nur das Versprechen eines Ziels faellt weg.
+         * „Eine Zeile oeffnen heisst, sie gesehen zu haben" (#1096) gilt
+         * auch dort, wo es nichts zu oeffnen gibt: Sonst waere die einzige
+         * Art, eine imkr-Zeile loszuwerden, der Haken daneben.
+         */
+        const holen = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ marked: 1 }) });
+        vi.stubGlobal('fetch', holen);
+
+        render(
+            <InboxPage
+                {...daten({
+                    items: [zeile({ kind: 'meldung', title: 'claude is done', link: null })],
+                    counts: { meldung: 1 },
+                    markable: { local: ['meldung'], sources: {} },
+                })}
+                {...basis}
+            />,
+        );
+
+        fireEvent.click(screen.getByText('claude is done'));
+
+        expect(holen).toHaveBeenCalled();
+
+        vi.unstubAllGlobals();
+    });
+});
