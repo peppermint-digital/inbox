@@ -63,6 +63,23 @@ interface InboxMarkable {
     /** Arten je fremdem System — Schluessel wie `source`. */
     sources: Record<string, string[]>;
 }
+/**
+ * Wo ein LOESCHKNOPF ein Ziel findet (AI Brain #9069).
+ *
+ * Nur `local`, und das ist eine Entscheidung: Geloescht wird dort, wo die
+ * Sache liegt — es gibt bewusst keinen Schreibweg ueber die Systemgrenze.
+ * Deshalb fehlt hier ein `sources`, statt leer dabeizustehen; ein leeres
+ * Feld saehe aus wie „gerade nichts loeschbar" und damit wie ein Zustand,
+ * der sich aendern koennte.
+ *
+ * Und nur Arten, deren Quelle den Vertrag umsetzt. Eine Aufgabe oder einen
+ * Beleg „aus dem Posteingang zu loeschen" waere wirkungslos oder ein
+ * Datenverlust im Fremdsystem.
+ */
+interface InboxDeletable {
+    /** Arten, die HIER geloescht werden koennen. */
+    local: string[];
+}
 /** Was der Server fuer die Seite liefert. */
 interface InboxData {
     items: InboxItem[];
@@ -77,6 +94,12 @@ interface InboxData {
     totals?: InboxTotals;
     /** Wo abgehakt werden kann. Fehlt sie, wird kein Haken gezeichnet. */
     markable?: InboxMarkable;
+    /**
+     * Wo geloescht werden kann. Fehlt sie, wird kein Loeschknopf
+     * gezeichnet — ein System auf aelterem Paketstand schickt sie nicht,
+     * und ein Knopf ins Leere ist schlechter als keiner.
+     */
+    deletable?: InboxDeletable;
     /** Systeme, die nicht geantwortet haben. */
     unreachable: string[];
     /** Eigene Quellen, die nicht konnten. */
@@ -116,6 +139,34 @@ interface Props$1 extends InboxData {
      * wieder vom Server.
      */
     onMarked?: () => void;
+    /**
+     * Wohin das Loeschen schreibt (AI Brain #9069).
+     *
+     * Die Vorgabe ist die Route, die das Paket mitbringt. `null` schaltet
+     * das Loeschen ab — fuer ein Produkt, das die Route nicht laedt.
+     * Gezeichnet wird der Knopf trotzdem nur dort, wo `deletable` es
+     * erlaubt: eigene Zeile, loeschbare Art.
+     */
+    deleteHref?: string | null;
+    /** Nach dem Loeschen — wie `onMarked`. */
+    onDeleted?: () => void;
+    /**
+     * Neu laden auf Knopfdruck (AI Brain #9069).
+     *
+     * Von der alten Meldungsseite uebernommen. Ohne Angabe erscheint der
+     * Knopf NICHT — diese Seite bekommt ihre Daten vom Produkt, und einer,
+     * der nichts tut, ist schlechter als keiner. Mit Inertia gehoert hier
+     * `router.reload()` hin.
+     */
+    onRefresh?: () => void;
+    /**
+     * Die Rueckfrage vor „alle loeschen".
+     *
+     * Vorgabe `window.confirm`. Als Prop, weil ein Produkt einen eigenen
+     * Dialog haben kann — und weil sich eine Rueckfrage sonst nicht
+     * pruefen laesst, ohne den Browser zu fragen.
+     */
+    confirm?: (frage: string) => boolean;
     title?: string;
     subtitle?: string;
 }
@@ -149,7 +200,7 @@ interface Props$1 extends InboxData {
  * immer da, man kann nichts anklicken." Der Satz beschrieb kein Versehen
  * in der Technik, sondern eine Oberflaeche ohne Griff.
  */
-declare function InboxPage({ items, kinds, counts, totals, markable, unreachable, failed, labels, formatTime, onOpen, renderActions, initialKind, settingsHref, readHref, onMarked, title, subtitle, }: Props$1): react.JSX.Element;
+declare function InboxPage({ items, kinds, counts, totals, markable, deletable, unreachable, failed, labels, formatTime, onOpen, renderActions, initialKind, settingsHref, readHref, onMarked, deleteHref, onDeleted, onRefresh, confirm: bestaetigen, title, subtitle, }: Props$1): react.JSX.Element;
 
 interface Props {
     items: InboxItem[];
@@ -166,10 +217,23 @@ interface Props {
 /**
  * Die Liste einer Art.
  *
- * Bewusst ohne „gelesen"- und „loeschen"-Knoepfe: Was hier steht, kommt zu
- * einem grossen Teil aus anderen Systemen, und dort faende eine solche
- * Aktion kein Ziel. Erledigt wird eine Sache da, wo sie liegt — der Klick
- * fuehrt hin.
+ * ## Die Aktionen kommen von aussen, ueber `renderActions`
+ *
+ * Hier stand bis zum 29.10.2026: „Bewusst ohne ‚gelesen'- und
+ * ‚loeschen'-Knoepfe: Was hier steht, kommt zu einem grossen Teil aus
+ * anderen Systemen, und dort faende eine solche Aktion kein Ziel."
+ *
+ * Die Begruendung war richtig und ist es noch — nur der Schluss daraus war
+ * zu weit. Inzwischen sagt der Server je Art, wo eine Aktion ein Ziel
+ * findet (`markable` seit #1096, `deletable` seit #9069), und
+ * {@see InboxPage} zeichnet den Knopf genau dort. Der geschuetzte Fall ist
+ * damit nicht weggefallen, sondern praeziser geworden: Eine FREMDE Zeile
+ * bekommt weiterhin keinen Loeschknopf, und keine Aufgabe und kein Beleg
+ * ueberhaupt einen.
+ *
+ * Diese Komponente selbst bleibt ohne eigene Aktion. Sie zeichnet, was ihr
+ * `renderActions` gibt — das ist der Grund, warum der Umbau sie nicht
+ * anfassen musste.
  */
 declare function InboxList({ items, formatTime, localLabel, sourceLabels, onOpen, renderActions, empty }: Props): react.JSX.Element;
 
@@ -322,4 +386,130 @@ interface UseAbhakenResult {
 }
 declare function useAbhaken(options?: UseAbhakenOptions): UseAbhakenResult;
 
-export { type InboxData, type InboxItem, type InboxKind, InboxList, type InboxMarkable, InboxPage, type InboxTotals, type UseAbhakenOptions, type UseAbhakenResult, bekannteFarben, bekannteSymbole, bestandJeArt, darfAbhaken, eigenerBestandAbhakbar, hinweisZurListe, inboxIcon, inboxSurfaceClass, inboxTextClass, istEigenAbhakbar, nochUngelesen, useAbhaken, zeilenSchluessel };
+/**
+ * Die Entscheidungen hinter dem Löschknopf — ohne DOM (AI Brain #9069).
+ *
+ * Eigene Datei aus demselben Grund wie `abhaken.ts`: Eine reine
+ * Entscheidung braucht keine gezeichnete Seite, und ein Test, der eine
+ * braucht, prüft am Ende die Umgebung mit.
+ */
+/**
+ * Darf an dieser Zeile ein Löschknopf hängen?
+ *
+ * Zwei Bedingungen, beide mit Grund:
+ *
+ * - **Sie ist von hier.** Löschen geht bewusst nicht über die
+ *   Systemgrenze — die Begründung steht in `LoeschbareQuelle`. Eine fremde
+ *   Zeile hat deshalb keinen Löschknopf, und das ist kein Mangel, sondern
+ *   die Aussage: Was dort liegt, wird dort gelöscht.
+ * - **Die Art erlaubt es.** Nur wo eine löschbare Quelle steht, findet der
+ *   Klick ein Ziel. Eine Aufgabe oder einen Beleg „aus dem Posteingang zu
+ *   löschen" wäre wirkungslos oder ein Datenverlust im Fremdsystem.
+ *   Bastians Vorgabe vom 29.10.2026: „Aufgaben und Belege nie."
+ *
+ * Anders als beim Haken ist „ungelesen" **keine** Bedingung: Eine gelesene
+ * Meldung ist genau die, die man loswerden will.
+ *
+ * Ohne `deletable` wird nichts gezeichnet — ein System auf älterem
+ * Paketstand schickt die Angabe nicht, und ein Knopf ins Leere ist
+ * schlechter als keiner.
+ */
+declare function darfLoeschen(item: InboxItem, deletable?: InboxDeletable): boolean;
+/**
+ * Lässt sich diese ART hier ganz leeren?
+ *
+ * Für den Knopf „Alle meine … löschen", der nur im offenen Reiter steht
+ * und nur dort, wo die Art es erlaubt.
+ */
+declare function artLoeschbar(art: string, deletable?: InboxDeletable): boolean;
+/**
+ * Wie viele EIGENE Zeilen dieser Art es insgesamt gibt.
+ *
+ * Steht in der Rückfrage vor dem Löschen. Die Zahl ist nicht Kosmetik: Ein
+ * Knopf, der „alle" sagt, muss sagen wie viele — bei Bastian waren das am
+ * 29.10.2026 über 4000 Meldungen, und ein Klick darauf ist unwiderruflich.
+ *
+ * Nur `local`, weil nur Eigenes löschbar ist. Die Zahl zählt dabei den
+ * BESTAND und nicht die gezeigten Zeilen: Der Knopf nimmt auch das, was
+ * unter der Kappung liegt — und das Gelesene dazu.
+ */
+declare function eigenerBestandDerArt(art: string, totals?: InboxTotals): number;
+/**
+ * Der Satz in der Rückfrage.
+ *
+ * Mit der Zahl und mit dem Wort der Art, nicht „alle Einträge": Wer den
+ * Knopf im Meldungs-Reiter drückt, soll lesen, dass es um Meldungen geht —
+ * daneben stehen Reiter für Aufgaben und Belege, und „alles löschen" liest
+ * sich dort wie „meinen ganzen Posteingang".
+ *
+ * Steht der Bestand auf 0, nennt der Satz die gezeigte Menge: Der Bestand
+ * zählt nur Ungelesenes, gelöscht wird aber auch Gelesenes. „0 löschen?"
+ * wäre an einer Liste mit sichtbaren Zeilen offensichtlich falsch.
+ */
+declare function loeschFrage(wort: string, bestand: number, angezeigt: number): string;
+
+/**
+ * Der Schreibweg hinter dem Löschknopf (AI Brain #9069).
+ *
+ * Spiegelbildlich zu `useAbhaken`, mit drei Unterschieden, die alle aus der
+ * Sache kommen:
+ *
+ * 1. **`DELETE` statt `POST`.** Hier verschwindet etwas, und das Verb soll
+ *    es sagen.
+ * 2. **Keine Herkunft in der Nutzlast.** Gelöscht wird nur Eigenes — siehe
+ *    `loeschen.ts`. Ein `source`-Feld gäbe es nur, um immer `null` zu sein.
+ * 3. **`alle` braucht die ART.** „Alle meine Meldungen löschen" ist eine
+ *    Aussage über Meldungen; ohne Art nähme derselbe Knopf beim nächsten
+ *    löschbaren Vokabular stillschweigend mehr mit, als draufsteht.
+ *
+ * ## Der eigene Zustand ist Absicht
+ *
+ * Wie beim Abhaken: Die Liste kommt als Server-Eigenschaft und weiß von
+ * einer Löschung nichts. Ohne diesen Zwischenstand bliebe die Zeile nach
+ * dem Klick stehen — und der Fix sähe aus wie der Fehler. `onChanged` ist
+ * der Weg für das Produkt, zusätzlich frisch zu laden; ohne ihn stimmt die
+ * Ansicht trotzdem.
+ */
+interface UseLoeschenOptions {
+    /** Wohin geschrieben wird. `null` schaltet das Löschen ganz ab. */
+    href?: string | null;
+    /** Nach einer Löschung — für ein Produkt, das seine Liste neu holt. */
+    onChanged?: () => void;
+}
+interface UseLoeschenResult {
+    /** Schlüssel der Zeilen, die in dieser Sitzung gelöscht wurden. */
+    geloescht: Set<string>;
+    /** Arten, die in dieser Sitzung ganz geleert wurden. */
+    geleerteArten: Set<string>;
+    /** Läuft gerade ein Schreibvorgang? */
+    laeuft: boolean;
+    /** Was schiefging — oder `null`. Gehört in die Ansicht, nicht ins Log. */
+    fehler: string | null;
+    loeschen: (zeilen: InboxItem[]) => Promise<void>;
+    alleDerArt: (art: string) => Promise<void>;
+}
+declare function useLoeschen(options?: UseLoeschenOptions): UseLoeschenResult;
+
+/**
+ * Die CSRF-Marke aus dem Dokument — wenn es eine gibt.
+ *
+ * ## Warum das eine eigene Datei ist
+ *
+ * Weil es zwei Schreibwege gibt (Abhaken und Löschen) und die Marke für
+ * beide dieselbe ist. Als zweite Kopie in `useLoeschen` wäre sie genau die
+ * Dopplung, die still veraltet: Wer die Cookie-Variante irgendwann ergänzt,
+ * ergänzt sie in einer der beiden Dateien.
+ *
+ * ## Zwei Quellen, und beide sind nötig
+ *
+ * Inertia-Anwendungen haben oft **kein** `<meta name="csrf-token">`; ihr
+ * Client schickt den `XSRF-TOKEN`-Cookie als Kopfzeile. Wer blind
+ * `querySelector` liest, bekommt `null` und schickt einen leeren Kopf.
+ *
+ * Deshalb wird beides versucht — und der Kopf **weggelassen**, wenn es
+ * nichts zu schicken gibt. Ein leerer Kopf täuscht einen Mechanismus vor,
+ * den es nicht gibt, und verschiebt den Fehler von „fehlt" auf „ist falsch".
+ */
+declare function csrfHeaders(): Record<string, string>;
+
+export { type InboxData, type InboxDeletable, type InboxItem, type InboxKind, InboxList, type InboxMarkable, InboxPage, type InboxTotals, type UseAbhakenOptions, type UseAbhakenResult, type UseLoeschenOptions, type UseLoeschenResult, artLoeschbar, bekannteFarben, bekannteSymbole, bestandJeArt, csrfHeaders, darfAbhaken, darfLoeschen, eigenerBestandAbhakbar, eigenerBestandDerArt, hinweisZurListe, inboxIcon, inboxSurfaceClass, inboxTextClass, istEigenAbhakbar, loeschFrage, nochUngelesen, useAbhaken, useLoeschen, zeilenSchluessel };

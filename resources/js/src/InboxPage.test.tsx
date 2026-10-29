@@ -27,18 +27,36 @@ function daten(u: Partial<InboxData> = {}): InboxData {
     return {
         items: [zeile()],
         kinds: [
-            { key: 'aufgabe', label: 'Neue Aufgaben', icon: 'inbox', color: 'blue', order: 10 },
-            { key: 'meldung', label: 'Benachrichtigungen', icon: 'bell', color: 'gray', order: 40 },
+            {
+                key: 'aufgabe',
+                label: 'Neue Aufgaben',
+                icon: 'inbox',
+                color: 'blue',
+                order: 10,
+            },
+            {
+                key: 'meldung',
+                label: 'Benachrichtigungen',
+                icon: 'bell',
+                color: 'gray',
+                order: 40,
+            },
         ],
         counts: { aufgabe: 1 },
         unreachable: [],
         failed: [],
-        labels: { local: 'Peppermint Manager', sources: { 'peppermint-crm': 'Peppermint CRM' } },
+        labels: {
+            local: 'Peppermint Manager',
+            sources: { 'peppermint-crm': 'Peppermint CRM' },
+        },
         ...u,
     };
 }
 
-const basis = { formatTime: (iso: string) => iso.slice(0, 10), onOpen: vi.fn() };
+const basis = {
+    formatTime: (iso: string) => iso.slice(0, 10),
+    onOpen: vi.fn(),
+};
 
 describe('InboxPage', () => {
     it('zeigt einen Reiter je Art, auch wenn er leer ist', () => {
@@ -76,7 +94,9 @@ describe('InboxPage', () => {
     it('schreibt die Herkunft an eine fremde Zeile', () => {
         render(
             <InboxPage
-                {...daten({ items: [zeile({ source: 'peppermint-crm', source_label: 'Peppermint CRM' })] })}
+                {...daten({
+                    items: [zeile({ source: 'peppermint-crm', source_label: 'Peppermint CRM' })],
+                })}
                 {...basis}
             />,
         );
@@ -137,7 +157,7 @@ it('schreibt den Zaehler in einer Farbe, die auf Rot steht', () => {
     // unsichtbar.
     render(<InboxPage {...daten({ counts: { aufgabe: 13 } })} {...basis} />);
 
-    const spans = Array.from(screen.getByRole("tab", { name: /Neue Aufgaben/ }).querySelectorAll("span"));
+    const spans = Array.from(screen.getByRole('tab', { name: /Neue Aufgaben/ }).querySelectorAll('span'));
     const pille = spans[spans.length - 1];
 
     expect(pille?.className).toContain('text-white');
@@ -171,7 +191,10 @@ describe('Der Weg zu den Einstellungen', () => {
 });
 
 describe('Der Haken an einer Zeile (#1096)', () => {
-    const markable = { local: ['aufgabe'], sources: { 'peppermint-crm': ['aufgabe'] } };
+    const markable = {
+        local: ['aufgabe'],
+        sources: { 'peppermint-crm': ['aufgabe'] },
+    };
 
     afterEach(() => {
         vi.unstubAllGlobals();
@@ -233,7 +256,10 @@ describe('Der Haken an einer Zeile (#1096)', () => {
 
         render(
             <InboxPage
-                {...daten({ items: [zeile({ id: '42', source: 'peppermint-crm' })], markable })}
+                {...daten({
+                    items: [zeile({ id: '42', source: 'peppermint-crm' })],
+                    markable,
+                })}
                 {...basis}
             />,
         );
@@ -243,7 +269,11 @@ describe('Der Haken an einer Zeile (#1096)', () => {
         await vi.waitFor(() => expect(aufrufe).toHaveLength(1));
 
         expect(aufrufe[0]?.url).toBe('/posteingang/gelesen');
-        expect(aufrufe[0]?.body).toEqual({ source: 'peppermint-crm', kind: 'aufgabe', ids: ['42'] });
+        expect(aufrufe[0]?.body).toEqual({
+            source: 'peppermint-crm',
+            kind: 'aufgabe',
+            ids: ['42'],
+        });
     });
 
     it('nimmt die Zeile sofort aus dem Ungelesenen', async () => {
@@ -275,13 +305,19 @@ describe('Der Haken an einer Zeile (#1096)', () => {
          * und es kommt nicht an, muss das sehen — sonst steht die Zeile
          * beim Neuladen wieder da.
          */
-        fetchAttrappe({ ok: false, status: 502, body: { message: 'unreachable: CRM antwortet nicht' } });
+        fetchAttrappe({
+            ok: false,
+            status: 502,
+            body: { message: 'unreachable: CRM antwortet nicht' },
+        });
 
         render(<InboxPage {...daten({ markable })} {...basis} />);
 
         fireEvent.click(screen.getByRole('button', { name: 'Als gelesen markieren' }));
 
-        await vi.waitFor(() => expect(screen.getByRole('alert').textContent).toContain('unreachable: CRM antwortet nicht'));
+        await vi.waitFor(() =>
+            expect(screen.getByRole('alert').textContent).toContain('unreachable: CRM antwortet nicht'),
+        );
 
         // Und die Zeile bleibt ungelesen — nichts wird vorgetaeuscht.
         expect(screen.getByRole('button', { name: 'Als gelesen markieren' })).toBeDefined();
@@ -290,7 +326,10 @@ describe('Der Haken an einer Zeile (#1096)', () => {
 
 describe('„Alle eigenen als gelesen"', () => {
     const markable = { local: ['aufgabe'], sources: {} };
-    const totals = { local: { aufgabe: 3953 }, sources: { 'peppermint-crm': { aufgabe: 40 } } };
+    const totals = {
+        local: { aufgabe: 3953 },
+        sources: { 'peppermint-crm': { aufgabe: 40 } },
+    };
 
     afterEach(() => {
         vi.unstubAllGlobals();
@@ -343,12 +382,7 @@ describe('„Alle eigenen als gelesen"', () => {
 
 describe('Der Satz „N von M"', () => {
     it('erklaert, warum die Liste kuerzer ist als der Zaehler', () => {
-        render(
-            <InboxPage
-                {...daten({ totals: { local: { aufgabe: 3953 }, sources: {} } })}
-                {...basis}
-            />,
-        );
+        render(<InboxPage {...daten({ totals: { local: { aufgabe: 3953 }, sources: {} } })} {...basis} />);
 
         expect(screen.getByText('Hier stehen die 1 neuesten Zeilen von 3953 ungelesenen.')).toBeDefined();
     });
@@ -430,7 +464,14 @@ describe('Zeile ohne Ziel (AI Brain #1151)', () => {
     });
 
     it('verspricht den Klick, wo ein Verweis ist', () => {
-        render(<InboxPage {...daten({ items: [zeile({ link: 'https://pm.beispiel.test/tasks/42' })] })} {...basis} />);
+        render(
+            <InboxPage
+                {...daten({
+                    items: [zeile({ link: 'https://pm.beispiel.test/tasks/42' })],
+                })}
+                {...basis}
+            />,
+        );
 
         const titel = screen.getByText('Angebot nachfassen');
 
@@ -464,5 +505,257 @@ describe('Zeile ohne Ziel (AI Brain #1151)', () => {
         expect(holen).toHaveBeenCalled();
 
         vi.unstubAllGlobals();
+    });
+});
+
+describe('Löschen im gemeinsamen Posteingang (AI Brain #9069)', () => {
+    const loeschbar = { local: ['notification'] };
+
+    function mitFetch() {
+        const holen = vi.fn().mockResolvedValue({
+            ok: true,
+            status: 200,
+            json: async () => ({ deleted: 1 }),
+        });
+        vi.stubGlobal('fetch', holen);
+
+        return holen;
+    }
+
+    afterEach(() => vi.unstubAllGlobals());
+
+    it('zeichnet den Löschknopf an einer eigenen Meldung', () => {
+        render(
+            <InboxPage
+                {...daten({
+                    items: [zeile({ kind: 'meldung', title: 'Bug behoben' })],
+                    counts: { meldung: 1 },
+                    deletable: { local: ['meldung'] },
+                })}
+                {...basis}
+            />,
+        );
+
+        expect(screen.getByLabelText('Löschen')).toBeDefined();
+    });
+
+    it('zeichnet KEINEN Löschknopf an einer fremden Zeile', () => {
+        // Gelöscht wird dort, wo die Sache liegt (Entscheidung B1).
+        render(
+            <InboxPage
+                {...daten({
+                    items: [zeile({ kind: 'meldung', source: 'peppermint-crm' })],
+                    counts: { meldung: 1 },
+                    deletable: { local: ['meldung'] },
+                })}
+                {...basis}
+            />,
+        );
+
+        expect(screen.queryByLabelText('Löschen')).toBeNull();
+    });
+
+    it('zeichnet KEINEN Löschknopf an einer Aufgabe', () => {
+        // Bastians Vorgabe: „Aufgaben und Belege nie."
+        render(<InboxPage {...daten({ deletable: { local: ['meldung'] } })} {...basis} />);
+
+        expect(screen.queryByLabelText('Löschen')).toBeNull();
+    });
+
+    it('löscht eine Zeile ohne Rückfrage', () => {
+        const holen = mitFetch();
+        const fragen = vi.fn(() => true);
+
+        render(
+            <InboxPage
+                {...daten({
+                    items: [zeile({ kind: 'meldung' })],
+                    counts: { meldung: 1 },
+                    deletable: { local: ['meldung'] },
+                })}
+                {...basis}
+                confirm={fragen}
+            />,
+        );
+
+        fireEvent.click(screen.getByLabelText('Löschen'));
+
+        expect(fragen).not.toHaveBeenCalled();
+        expect(holen).toHaveBeenCalledWith('/posteingang/zeilen', expect.objectContaining({ method: 'DELETE' }));
+    });
+
+    it('fragt vor „alle löschen" nach und nennt die Zahl', () => {
+        const holen = mitFetch();
+        const fragen = vi.fn(() => true);
+
+        render(
+            <InboxPage
+                {...daten({
+                    items: [zeile({ kind: 'meldung' })],
+                    counts: { meldung: 1 },
+                    totals: { local: { meldung: 4113 }, sources: {} },
+                    deletable: { local: ['meldung'] },
+                })}
+                {...basis}
+                confirm={fragen}
+            />,
+        );
+
+        fireEvent.click(screen.getByText(/Alle meine .* löschen/));
+
+        expect(fragen).toHaveBeenCalledWith(expect.stringContaining('4113'));
+        expect(holen).toHaveBeenCalled();
+    });
+
+    it('löscht NICHT, wenn die Rückfrage verneint wird', () => {
+        // Die Rückfrage ist der Schutz, nicht die Höflichkeit: Hier
+        // verschwinden auch die gelesenen Zeilen.
+        const holen = mitFetch();
+
+        render(
+            <InboxPage
+                {...daten({
+                    items: [zeile({ kind: 'meldung' })],
+                    counts: { meldung: 1 },
+                    deletable: { local: ['meldung'] },
+                })}
+                {...basis}
+                confirm={() => false}
+            />,
+        );
+
+        fireEvent.click(screen.getByText(/Alle meine .* löschen/));
+
+        expect(holen).not.toHaveBeenCalled();
+    });
+
+    it('zeigt „alle löschen" nicht im Reiter einer nicht löschbaren Art', () => {
+        render(<InboxPage {...daten({ deletable: { local: ['meldung'] } })} {...basis} />);
+
+        // Offen ist „aufgabe" — dort gibt es den Knopf nicht.
+        expect(screen.queryByText(/Alle meine .* löschen/)).toBeNull();
+    });
+
+    it('zeichnet gar nichts, wenn deleteHref null ist', () => {
+        render(
+            <InboxPage
+                {...daten({
+                    items: [zeile({ kind: 'meldung' })],
+                    counts: { meldung: 1 },
+                    deletable: { local: ['meldung'] },
+                })}
+                {...basis}
+                deleteHref={null}
+            />,
+        );
+
+        expect(screen.queryByLabelText('Löschen')).toBeNull();
+    });
+});
+
+describe('Filter und Gruppierung (AI Brain #9069)', () => {
+    it('filtert auf „nur ungelesene", ohne die Zahl am Reiter zu ändern', () => {
+        render(
+            <InboxPage
+                {...daten({
+                    items: [zeile({ id: '1', title: 'Offen' }), zeile({ id: '2', title: 'Gelesen', is_unread: false })],
+                    counts: { aufgabe: 1 },
+                })}
+                {...basis}
+            />,
+        );
+
+        expect(screen.getByText('Gelesen')).toBeDefined();
+
+        fireEvent.click(screen.getByText('Nur ungelesene'));
+
+        expect(screen.queryByText('Gelesen')).toBeNull();
+        expect(screen.getByText('Offen')).toBeDefined();
+        // Der Filter ist Darstellung, kein Abruf — die Zahl bleibt stehen.
+        expect(screen.getByRole('tab', { name: /Neue Aufgaben/ }).textContent).toContain('1');
+    });
+
+    it('filtert nach HERKUNFT — die andere Achse als die Reiter', () => {
+        render(
+            <InboxPage
+                {...daten({
+                    items: [
+                        zeile({ id: '1', title: 'Von hier' }),
+                        zeile({ id: '2', title: 'Aus dem CRM', source: 'peppermint-crm' }),
+                    ],
+                    counts: { aufgabe: 2 },
+                })}
+                {...basis}
+            />,
+        );
+
+        // Ueber die ROLLE, nicht ueber den Text: Die Marke an der Zeile
+        // tragt dasselbe Wort, und `getByText` findet dann zwei Treffer.
+        fireEvent.click(screen.getByRole('button', { name: 'Peppermint CRM' }));
+
+        expect(screen.getByText('Aus dem CRM')).toBeDefined();
+        expect(screen.queryByText('Von hier')).toBeNull();
+    });
+
+    it('zeigt die Herkunftsknöpfe nicht, wenn es nur EIN System gibt', () => {
+        // Zwischen „alles" und „alles" zu filtern ist kein Filter.
+        render(<InboxPage {...daten()} {...basis} />);
+
+        expect(screen.queryByText('Alle Systeme')).toBeNull();
+    });
+
+    it('sagt es, wenn ein Filter nichts übrig lässt', () => {
+        // Sonst sieht es aus wie ein leerer Posteingang, und man sucht den
+        // Fehler bei sich statt beim Filter.
+        render(
+            <InboxPage
+                {...daten({
+                    items: [zeile({ title: 'Gelesen', is_unread: false })],
+                    counts: {},
+                })}
+                {...basis}
+            />,
+        );
+
+        fireEvent.click(screen.getByText('Nur ungelesene'));
+
+        expect(screen.getByText(/zu diesem Filter passt/)).toBeDefined();
+    });
+
+    it('gruppiert in „Neu" und „Früher", wenn es beides gibt', () => {
+        render(
+            <InboxPage
+                {...daten({
+                    items: [zeile({ id: '1', title: 'Offen' }), zeile({ id: '2', title: 'Gelesen', is_unread: false })],
+                    counts: { aufgabe: 1 },
+                })}
+                {...basis}
+            />,
+        );
+
+        expect(screen.getByText('Neu (1)')).toBeDefined();
+        expect(screen.getByText('Früher (1)')).toBeDefined();
+    });
+
+    it('gruppiert NICHT, wenn alles in eine Gruppe fällt', () => {
+        // Zwei Überschriften über einer einzigen Gruppe sind Lärm.
+        render(<InboxPage {...daten()} {...basis} />);
+
+        expect(screen.queryByText(/^Neu \(/)).toBeNull();
+        expect(screen.queryByText(/^Früher \(/)).toBeNull();
+    });
+
+    it('zeigt den Neu-laden-Knopf nur, wenn das Produkt nachladen kann', () => {
+        // Ein Knopf, der nichts tut, ist schlechter als keiner.
+        const { unmount } = render(<InboxPage {...daten()} {...basis} />);
+        expect(screen.queryByLabelText('Neu laden')).toBeNull();
+        unmount();
+
+        const laden = vi.fn();
+        render(<InboxPage {...daten()} {...basis} onRefresh={laden} />);
+
+        fireEvent.click(screen.getByLabelText('Neu laden'));
+
+        expect(laden).toHaveBeenCalled();
     });
 });

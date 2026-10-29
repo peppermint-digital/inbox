@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { istEigenAbhakbar, zeilenSchluessel } from './abhaken';
+import { csrfHeaders } from './csrf';
 import type { InboxItem, InboxMarkable } from './types';
 
 /**
@@ -37,35 +38,6 @@ export interface UseAbhakenResult {
     fehler: string | null;
     abhaken: (zeilen: InboxItem[]) => Promise<void>;
     alleEigenen: () => Promise<void>;
-}
-
-/**
- * Das CSRF-Token aus dem Dokumentenkopf — wenn es eines gibt.
- *
- * Inertia-Anwendungen haben oft KEIN `<meta name="csrf-token">`; ihr
- * Client schickt den XSRF-TOKEN-Cookie als Kopfzeile. Wer blind
- * `querySelector` liest, bekommt `null` und schickt einen leeren Kopf.
- * Deshalb wird hier beides versucht und der Kopf weggelassen, wenn es
- * nichts zu schicken gibt — ein leerer Kopf taeuscht einen Mechanismus
- * vor, den es nicht gibt.
- */
-function csrfHeaders(): Record<string, string> {
-    if (typeof document === 'undefined') {
-        return {};
-    }
-
-    const meta = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-
-    if (meta) {
-        return { 'X-CSRF-TOKEN': meta };
-    }
-
-    const cookie = document.cookie
-        .split('; ')
-        .find((teil) => teil.startsWith('XSRF-TOKEN='))
-        ?.slice('XSRF-TOKEN='.length);
-
-    return cookie ? { 'X-XSRF-TOKEN': decodeURIComponent(cookie) } : {};
 }
 
 export function useAbhaken(options: UseAbhakenOptions = {}): UseAbhakenResult {
@@ -112,7 +84,9 @@ export function useAbhaken(options: UseAbhakenOptions = {}): UseAbhakenResult {
                     // die Ansicht — wer abhakt und es kommt nicht an, muss
                     // das sehen, sonst steht die Zeile beim Neuladen
                     // wieder da und der Fehler sieht aus wie der Fix.
-                    const daten = (await antwort.json().catch(() => null)) as { message?: string } | null;
+                    const daten = (await antwort.json().catch(() => null)) as {
+                        message?: string;
+                    } | null;
 
                     setFehler(daten?.message ?? `Das Abhaken kam nicht an (${antwort.status}).`);
 
@@ -152,7 +126,9 @@ export function useAbhaken(options: UseAbhakenOptions = {}): UseAbhakenResult {
                 return;
             }
 
-            const gleiche = zeilen.filter((z) => z.kind === erste.kind && (z.source ?? null) === (erste.source ?? null));
+            const gleiche = zeilen.filter(
+                (z) => z.kind === erste.kind && (z.source ?? null) === (erste.source ?? null),
+            );
 
             const erfolg = await schreiben({
                 source: erste.source ?? null,
@@ -187,5 +163,12 @@ export function useAbhaken(options: UseAbhakenOptions = {}): UseAbhakenResult {
         }
     }, [schreiben]);
 
-    return { abgehakt, alleEigenenAbgehakt, laeuft, fehler, abhaken, alleEigenen };
+    return {
+        abgehakt,
+        alleEigenenAbgehakt,
+        laeuft,
+        fehler,
+        abhaken,
+        alleEigenen,
+    };
 }

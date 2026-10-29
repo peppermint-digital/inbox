@@ -1,5 +1,5 @@
 // resources/js/src/InboxPage.tsx
-import { useMemo, useState as useState2 } from "react";
+import { useMemo, useState as useState3 } from "react";
 
 // resources/js/src/ui/utils.ts
 import { clsx } from "clsx";
@@ -173,28 +173,63 @@ function Zeile({
   const herkunft = item.source ? item.source_label ?? sourceLabels[item.source] ?? item.source : localLabel;
   const zusatz = Object.entries(item.meta ?? {}).filter(([, wert]) => wert !== null && wert !== "" && typeof wert !== "object").map(([, wert]) => String(wert));
   const hatZiel = typeof item.link === "string" && item.link !== "";
-  return /* @__PURE__ */ jsx2("div", { className: cn("group rounded-lg border p-3", frisch ? inboxSurfaceClass(item.color) : "transition-colors hover:bg-muted/30"), children: /* @__PURE__ */ jsxs("div", { className: "flex items-start gap-3", children: [
-    /* @__PURE__ */ jsx2("div", { className: cn("mt-0.5 shrink-0 rounded-full p-1.5", frisch ? inboxSurfaceClass(item.color) : "bg-muted"), children: /* @__PURE__ */ jsx2(Symbol, { className: cn("h-4 w-4", frisch ? inboxTextClass(item.color) : "text-muted-foreground") }) }),
-    /* @__PURE__ */ jsxs("div", { className: cn("min-w-0 flex-1", hatZiel ? "cursor-pointer" : "cursor-default"), onClick: () => onOpen(item), children: [
-      /* @__PURE__ */ jsxs("div", { className: "flex flex-wrap items-center gap-2", children: [
-        /* @__PURE__ */ jsx2("p", { className: cn("font-medium", hatZiel && "hover:underline", frisch ? inboxTextClass(item.color) : "truncate"), children: item.title }),
-        /* @__PURE__ */ jsx2(Badge, { variant: "outline", children: herkunft })
-      ] }),
-      item.message && /* @__PURE__ */ jsx2("p", { className: "mt-1 line-clamp-2 text-xs text-muted-foreground", children: item.message }),
-      /* @__PURE__ */ jsxs("div", { className: "mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground", children: [
-        item.created_at && /* @__PURE__ */ jsx2("span", { children: formatTime(item.created_at) }),
-        zusatz.map((wert, i) => /* @__PURE__ */ jsxs("span", { className: "truncate", children: [
-          "\xB7 ",
-          wert
-        ] }, i))
+  return /* @__PURE__ */ jsx2(
+    "div",
+    {
+      className: cn(
+        "group rounded-lg border p-3",
+        frisch ? inboxSurfaceClass(item.color) : "transition-colors hover:bg-muted/30"
+      ),
+      children: /* @__PURE__ */ jsxs("div", { className: "flex items-start gap-3", children: [
+        /* @__PURE__ */ jsx2(
+          "div",
+          {
+            className: cn(
+              "mt-0.5 shrink-0 rounded-full p-1.5",
+              frisch ? inboxSurfaceClass(item.color) : "bg-muted"
+            ),
+            children: /* @__PURE__ */ jsx2(Symbol, { className: cn("h-4 w-4", frisch ? inboxTextClass(item.color) : "text-muted-foreground") })
+          }
+        ),
+        /* @__PURE__ */ jsxs(
+          "div",
+          {
+            className: cn("min-w-0 flex-1", hatZiel ? "cursor-pointer" : "cursor-default"),
+            onClick: () => onOpen(item),
+            children: [
+              /* @__PURE__ */ jsxs("div", { className: "flex flex-wrap items-center gap-2", children: [
+                /* @__PURE__ */ jsx2(
+                  "p",
+                  {
+                    className: cn(
+                      "font-medium",
+                      hatZiel && "hover:underline",
+                      frisch ? inboxTextClass(item.color) : "truncate"
+                    ),
+                    children: item.title
+                  }
+                ),
+                /* @__PURE__ */ jsx2(Badge, { variant: "outline", children: herkunft })
+              ] }),
+              item.message && /* @__PURE__ */ jsx2("p", { className: "mt-1 line-clamp-2 text-xs text-muted-foreground", children: item.message }),
+              /* @__PURE__ */ jsxs("div", { className: "mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground", children: [
+                item.created_at && /* @__PURE__ */ jsx2("span", { children: formatTime(item.created_at) }),
+                zusatz.map((wert, i) => /* @__PURE__ */ jsxs("span", { className: "truncate", children: [
+                  "\xB7 ",
+                  wert
+                ] }, i))
+              ] })
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsx2("div", { className: "flex shrink-0 items-center gap-1", children: renderActions?.(item) })
       ] })
-    ] }),
-    /* @__PURE__ */ jsx2("div", { className: "flex shrink-0 items-center gap-1", children: renderActions?.(item) })
-  ] }) });
+    }
+  );
 }
 
 // resources/js/src/InboxPage.tsx
-import { Check, CheckCheck, Settings as Zahnrad } from "lucide-react";
+import { Check, CheckCheck, RefreshCw as RefreshCw2, Settings as Zahnrad, Trash2 as Trash22 } from "lucide-react";
 
 // resources/js/src/abhaken.ts
 function zeilenSchluessel(item) {
@@ -241,8 +276,28 @@ function hinweisZurListe(angezeigt, bestand) {
   return `Hier stehen die ${angezeigt} neuesten Zeilen von ${bestand} ungelesenen.`;
 }
 
+// resources/js/src/loeschen.ts
+function darfLoeschen(item, deletable) {
+  if (item.source || !deletable) {
+    return false;
+  }
+  return (deletable.local ?? []).includes(item.kind);
+}
+function artLoeschbar(art, deletable) {
+  return (deletable?.local ?? []).includes(art);
+}
+function eigenerBestandDerArt(art, totals) {
+  return totals?.local?.[art] ?? 0;
+}
+function loeschFrage(wort, bestand, angezeigt) {
+  const zahl = bestand > 0 ? bestand : angezeigt;
+  return zahl > 0 ? `${zahl} ${wort} endg\xFCltig l\xF6schen? Das l\xE4sst sich nicht zur\xFCcknehmen.` : `Alle ${wort} endg\xFCltig l\xF6schen? Das l\xE4sst sich nicht zur\xFCcknehmen.`;
+}
+
 // resources/js/src/useAbhaken.ts
 import { useCallback, useState } from "react";
+
+// resources/js/src/csrf.ts
 function csrfHeaders() {
   if (typeof document === "undefined") {
     return {};
@@ -254,6 +309,8 @@ function csrfHeaders() {
   const cookie = document.cookie.split("; ").find((teil) => teil.startsWith("XSRF-TOKEN="))?.slice("XSRF-TOKEN=".length);
   return cookie ? { "X-XSRF-TOKEN": decodeURIComponent(cookie) } : {};
 }
+
+// resources/js/src/useAbhaken.ts
 function useAbhaken(options = {}) {
   const { href = "/posteingang/gelesen", onChanged } = options;
   const [abgehakt, setAbgehakt] = useState(() => /* @__PURE__ */ new Set());
@@ -307,7 +364,9 @@ function useAbhaken(options = {}) {
       if (!erste) {
         return;
       }
-      const gleiche = zeilen.filter((z) => z.kind === erste.kind && (z.source ?? null) === (erste.source ?? null));
+      const gleiche = zeilen.filter(
+        (z) => z.kind === erste.kind && (z.source ?? null) === (erste.source ?? null)
+      );
       const erfolg = await schreiben({
         source: erste.source ?? null,
         kind: erste.kind,
@@ -332,7 +391,101 @@ function useAbhaken(options = {}) {
       setAlleEigenenAbgehakt(true);
     }
   }, [schreiben]);
-  return { abgehakt, alleEigenenAbgehakt, laeuft, fehler, abhaken, alleEigenen };
+  return {
+    abgehakt,
+    alleEigenenAbgehakt,
+    laeuft,
+    fehler,
+    abhaken,
+    alleEigenen
+  };
+}
+
+// resources/js/src/useLoeschen.ts
+import { useCallback as useCallback2, useState as useState2 } from "react";
+function useLoeschen(options = {}) {
+  const { href = "/posteingang/zeilen", onChanged } = options;
+  const [geloescht, setGeloescht] = useState2(() => /* @__PURE__ */ new Set());
+  const [geleerteArten, setGeleerteArten] = useState2(() => /* @__PURE__ */ new Set());
+  const [laeuft, setLaeuft] = useState2(false);
+  const [fehler, setFehler] = useState2(null);
+  const schreiben = useCallback2(
+    async (nutzlast) => {
+      if (!href) {
+        return false;
+      }
+      setLaeuft(true);
+      setFehler(null);
+      try {
+        const antwort = await fetch(href, {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+            ...csrfHeaders()
+          },
+          body: JSON.stringify(nutzlast)
+        });
+        if (antwort.status === 419) {
+          window.location.reload();
+          return false;
+        }
+        if (!antwort.ok) {
+          const daten = await antwort.json().catch(() => null);
+          setFehler(daten?.message ?? `Das L\xF6schen kam nicht an (${antwort.status}).`);
+          return false;
+        }
+        onChanged?.();
+        return true;
+      } catch (ursache) {
+        setFehler(ursache instanceof Error ? ursache.message : "Das L\xF6schen kam nicht an.");
+        return false;
+      } finally {
+        setLaeuft(false);
+      }
+    },
+    [href, onChanged]
+  );
+  const loeschen = useCallback2(
+    async (zeilen) => {
+      if (zeilen.length === 0) {
+        return;
+      }
+      const erste = zeilen[0];
+      if (!erste) {
+        return;
+      }
+      const gleiche = zeilen.filter((z) => z.kind === erste.kind && !z.source);
+      if (gleiche.length > 0) {
+        const erfolg = await schreiben({
+          kind: erste.kind,
+          ids: gleiche.map((z) => z.id)
+        });
+        if (erfolg) {
+          setGeloescht((bisher) => {
+            const neu = new Set(bisher);
+            gleiche.forEach((z) => neu.add(zeilenSchluessel(z)));
+            return neu;
+          });
+        }
+      }
+      const rest = zeilen.filter((z) => !gleiche.includes(z));
+      if (rest.length > 0) {
+        await loeschen(rest);
+      }
+    },
+    [schreiben]
+  );
+  const alleDerArt = useCallback2(
+    async (art) => {
+      if (await schreiben({ alle: true, kind: art })) {
+        setGeleerteArten((bisher) => new Set(bisher).add(art));
+      }
+    },
+    [schreiben]
+  );
+  return { geloescht, geleerteArten, laeuft, fehler, loeschen, alleDerArt };
 }
 
 // resources/js/src/InboxPage.tsx
@@ -343,6 +496,7 @@ function InboxPage({
   counts,
   totals,
   markable,
+  deletable,
   unreachable,
   failed,
   labels,
@@ -353,34 +507,119 @@ function InboxPage({
   settingsHref = "/settings/notifications",
   readHref = "/posteingang/gelesen",
   onMarked,
+  deleteHref = "/posteingang/zeilen",
+  onDeleted,
+  onRefresh,
+  confirm: bestaetigen,
   title = "Posteingang",
   subtitle = "Alles, was auf dich wartet \u2014 aus allen Systemen"
 }) {
   const haken = useAbhaken({ href: readHref, onChanged: onMarked });
+  const papierkorb = useLoeschen({ href: deleteHref, onChanged: onDeleted });
+  const fragen = bestaetigen ?? ((frage) => typeof window === "undefined" ? false : window.confirm(frage));
+  const [nurUngelesen, setNurUngelesen] = useState3(false);
+  const [herkunft, setHerkunft] = useState3(null);
   const ersterMitInhalt = useMemo(
     () => kinds.find((k) => (counts[k.key] ?? 0) > 0)?.key ?? kinds[0]?.key ?? "",
     [kinds, counts]
   );
-  const [offen, setOffen] = useState2(initialKind ?? ersterMitInhalt);
+  const [offen, setOffen] = useState3(initialKind ?? ersterMitInhalt);
   const zeilen = useMemo(
-    () => items.map((item) => ({
+    () => items.filter(
+      (item) => !papierkorb.geloescht.has(zeilenSchluessel(item)) && !(papierkorb.geleerteArten.has(item.kind) && !item.source)
+    ).map((item) => ({
       ...item,
       is_unread: nochUngelesen(item, haken.abgehakt, haken.alleEigenenAbgehakt, markable)
     })),
-    [items, haken.abgehakt, haken.alleEigenenAbgehakt, markable]
+    [items, haken.abgehakt, haken.alleEigenenAbgehakt, markable, papierkorb.geloescht, papierkorb.geleerteArten]
   );
   const zahlen = useMemo(() => {
     const angepasst = { ...counts };
-    items.forEach((item, i) => {
-      if (item.is_unread && zeilen[i]?.is_unread === false) {
+    const nachSchluessel = new Map(zeilen.map((z) => [zeilenSchluessel(z), z]));
+    items.forEach((item) => {
+      if (!item.is_unread) {
+        return;
+      }
+      const noch = nachSchluessel.get(zeilenSchluessel(item));
+      if (!noch || noch.is_unread === false) {
         angepasst[item.kind] = Math.max(0, (angepasst[item.kind] ?? 0) - 1);
       }
     });
     return angepasst;
   }, [counts, items, zeilen]);
-  const sichtbar = useMemo(() => zeilen.filter((i) => i.kind === offen), [zeilen, offen]);
+  const derArt = useMemo(() => zeilen.filter((i) => i.kind === offen), [zeilen, offen]);
+  const systeme = useMemo(() => {
+    const vorhanden = /* @__PURE__ */ new Map();
+    derArt.forEach((item) => {
+      const schluessel = item.source ?? "";
+      vorhanden.set(
+        schluessel,
+        item.source ? item.source_label ?? labels.sources[item.source] ?? item.source : labels.local
+      );
+    });
+    return [...vorhanden.entries()];
+  }, [derArt, labels]);
+  const sichtbar = useMemo(
+    () => derArt.filter(
+      (item) => (!nurUngelesen || item.is_unread) && (herkunft === null || (item.source ?? "") === herkunft)
+    ),
+    [derArt, nurUngelesen, herkunft]
+  );
+  const neue = useMemo(() => sichtbar.filter((i) => i.is_unread), [sichtbar]);
+  const frueher = useMemo(() => sichtbar.filter((i) => !i.is_unread), [sichtbar]);
+  const gruppiert = neue.length > 0 && frueher.length > 0;
   const eigeneOffen = haken.alleEigenenAbgehakt ? 0 : eigenerBestandAbhakbar(totals, markable);
-  const satz = hinweisZurListe(sichtbar.length, bestandJeArt(totals)[offen] ?? 0);
+  const satz = hinweisZurListe(derArt.length, bestandJeArt(totals)[offen] ?? 0);
+  const offeneArt = kinds.find((k) => k.key === offen);
+  const darfArtLeeren = deleteHref !== null && artLoeschbar(offen, deletable) && !papierkorb.geleerteArten.has(offen);
+  const bestandDerArt = eigenerBestandDerArt(offen, totals);
+  const wortDerArt = offeneArt?.label ?? "Eintr\xE4ge";
+  const oeffnenMitHaken = (eintrag) => {
+    if (readHref !== null && darfAbhaken(eintrag, markable)) {
+      void haken.abhaken([eintrag]);
+    }
+    onOpen(eintrag);
+  };
+  const zeilenAktionen = (eintrag) => /* @__PURE__ */ jsxs2(Fragment, { children: [
+    readHref !== null && darfAbhaken(eintrag, markable) && /* @__PURE__ */ jsx3(
+      "button",
+      {
+        type: "button",
+        title: "Als gelesen markieren",
+        "aria-label": "Als gelesen markieren",
+        disabled: haken.laeuft,
+        onClick: (event) => {
+          event.stopPropagation();
+          void haken.abhaken([eintrag]);
+        },
+        className: "inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-60",
+        children: /* @__PURE__ */ jsx3(Check, { className: "h-4 w-4" })
+      }
+    ),
+    deleteHref !== null && darfLoeschen(eintrag, deletable) && /* @__PURE__ */ jsx3(
+      "button",
+      {
+        type: "button",
+        title: "L\xF6schen",
+        "aria-label": "L\xF6schen",
+        disabled: papierkorb.laeuft,
+        onClick: (event) => {
+          event.stopPropagation();
+          void papierkorb.loeschen([eintrag]);
+        },
+        className: "inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-60",
+        children: /* @__PURE__ */ jsx3(Trash22, { className: "h-4 w-4" })
+      }
+    ),
+    renderActions?.(eintrag)
+  ] });
+  const listenGrundlage = {
+    formatTime,
+    localLabel: labels.local,
+    sourceLabels: labels.sources,
+    onOpen: oeffnenMitHaken,
+    renderActions: zeilenAktionen
+  };
   return /* @__PURE__ */ jsxs2("div", { className: "space-y-4", children: [
     /* @__PURE__ */ jsxs2("div", { className: "flex flex-wrap items-start justify-between gap-3", children: [
       /* @__PURE__ */ jsxs2("div", { children: [
@@ -403,6 +642,40 @@ function InboxPage({
                 " eigenen als gelesen"
               ] })
             ]
+          }
+        ),
+        darfArtLeeren && derArt.some((i) => !i.source) && /* @__PURE__ */ jsxs2(
+          "button",
+          {
+            type: "button",
+            disabled: papierkorb.laeuft,
+            onClick: () => {
+              if (fragen(
+                loeschFrage(wortDerArt, bestandDerArt, derArt.filter((i) => !i.source).length)
+              )) {
+                void papierkorb.alleDerArt(offen);
+              }
+            },
+            className: "inline-flex items-center gap-2 rounded-md border border-destructive/40 px-3 py-2 text-sm text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-60",
+            children: [
+              /* @__PURE__ */ jsx3(Trash22, { className: "h-4 w-4" }),
+              /* @__PURE__ */ jsxs2("span", { children: [
+                "Alle meine ",
+                wortDerArt,
+                " l\xF6schen"
+              ] })
+            ]
+          }
+        ),
+        onRefresh && /* @__PURE__ */ jsx3(
+          "button",
+          {
+            type: "button",
+            title: "Neu laden",
+            "aria-label": "Neu laden",
+            onClick: () => onRefresh(),
+            className: "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground",
+            children: /* @__PURE__ */ jsx3(RefreshCw2, { className: "h-4 w-4" })
           }
         ),
         settingsHref !== null && /* @__PURE__ */ jsxs2(
@@ -474,37 +747,79 @@ function InboxPage({
         art.key
       );
     }) }),
-    /* @__PURE__ */ jsx3("div", { role: "tabpanel", children: /* @__PURE__ */ jsx3(
+    (derArt.length > 0 || nurUngelesen || herkunft !== null) && /* @__PURE__ */ jsxs2("div", { className: "flex flex-wrap items-center gap-2", children: [
+      /* @__PURE__ */ jsx3(
+        "button",
+        {
+          type: "button",
+          "aria-pressed": nurUngelesen,
+          onClick: () => setNurUngelesen((an) => !an),
+          className: cn(
+            "rounded-md border px-3 py-1.5 text-sm transition-colors",
+            nurUngelesen ? "border-transparent bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+          ),
+          children: "Nur ungelesene"
+        }
+      ),
+      systeme.length > 1 && /* @__PURE__ */ jsxs2("div", { className: "flex flex-wrap items-center gap-1", children: [
+        /* @__PURE__ */ jsx3(
+          "button",
+          {
+            type: "button",
+            "aria-pressed": herkunft === null,
+            onClick: () => setHerkunft(null),
+            className: cn(
+              "rounded-md border px-3 py-1.5 text-sm transition-colors",
+              herkunft === null ? "border-transparent bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+            ),
+            children: "Alle Systeme"
+          }
+        ),
+        systeme.map(([schluessel, wort]) => /* @__PURE__ */ jsx3(
+          "button",
+          {
+            type: "button",
+            "aria-pressed": herkunft === schluessel,
+            onClick: () => setHerkunft(herkunft === schluessel ? null : schluessel),
+            className: cn(
+              "rounded-md border px-3 py-1.5 text-sm transition-colors",
+              herkunft === schluessel ? "border-transparent bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+            ),
+            children: wort
+          },
+          schluessel || "hier"
+        ))
+      ] })
+    ] }),
+    papierkorb.fehler !== null && /* @__PURE__ */ jsx3("div", { className: "rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive", children: papierkorb.fehler }),
+    /* @__PURE__ */ jsx3("div", { role: "tabpanel", className: "space-y-4", children: gruppiert ? /* @__PURE__ */ jsxs2(Fragment, { children: [
+      /* @__PURE__ */ jsxs2("div", { className: "space-y-2", children: [
+        /* @__PURE__ */ jsxs2("p", { className: "text-xs font-semibold text-muted-foreground", children: [
+          "Neu (",
+          neue.length,
+          ")"
+        ] }),
+        /* @__PURE__ */ jsx3(InboxList, { items: neue, ...listenGrundlage })
+      ] }),
+      /* @__PURE__ */ jsxs2("div", { className: "space-y-2", children: [
+        /* @__PURE__ */ jsxs2("p", { className: "text-xs font-semibold text-muted-foreground", children: [
+          "Fr\xFCher (",
+          frueher.length,
+          ")"
+        ] }),
+        /* @__PURE__ */ jsx3(InboxList, { items: frueher, ...listenGrundlage })
+      ] })
+    ] }) : /* @__PURE__ */ jsx3(
       InboxList,
       {
         items: sichtbar,
-        formatTime,
-        localLabel: labels.local,
-        sourceLabels: labels.sources,
-        onOpen: (eintrag) => {
-          if (readHref !== null && darfAbhaken(eintrag, markable)) {
-            void haken.abhaken([eintrag]);
-          }
-          onOpen(eintrag);
-        },
-        renderActions: (eintrag) => /* @__PURE__ */ jsxs2(Fragment, { children: [
-          readHref !== null && darfAbhaken(eintrag, markable) && /* @__PURE__ */ jsx3(
-            "button",
-            {
-              type: "button",
-              title: "Als gelesen markieren",
-              "aria-label": "Als gelesen markieren",
-              disabled: haken.laeuft,
-              onClick: (event) => {
-                event.stopPropagation();
-                void haken.abhaken([eintrag]);
-              },
-              className: "inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-60",
-              children: /* @__PURE__ */ jsx3(Check, { className: "h-4 w-4" })
-            }
-          ),
-          renderActions?.(eintrag)
-        ] })
+        ...listenGrundlage,
+        empty: (
+          // Ein Filter, der nichts uebrig laesst, sieht
+          // sonst aus wie ein leerer Posteingang — und man
+          // sucht den Fehler bei sich statt beim Filter.
+          derArt.length > 0 ? "Nichts, das zu diesem Filter passt." : void 0
+        )
       }
     ) }),
     satz !== null && /* @__PURE__ */ jsx3("p", { className: "text-center text-xs text-muted-foreground", children: satz })
@@ -513,17 +828,23 @@ function InboxPage({
 export {
   InboxList,
   InboxPage,
+  artLoeschbar,
   bekannteFarben,
   bekannteSymbole,
   bestandJeArt,
+  csrfHeaders,
   darfAbhaken,
+  darfLoeschen,
   eigenerBestandAbhakbar,
+  eigenerBestandDerArt,
   hinweisZurListe,
   inboxIcon,
   inboxSurfaceClass,
   inboxTextClass,
   istEigenAbhakbar,
+  loeschFrage,
   nochUngelesen,
   useAbhaken,
+  useLoeschen,
   zeilenSchluessel
 };

@@ -64,11 +64,11 @@ class Quellenverzeichnis
      * Alle eigenen Eintraege, je Quelle gekappt.
      *
      * `totals` ist der BESTAND je Art, `markable` die Arten, an denen ein
-     * Haken ein Ziel findet. Beides gehoert hierher und nicht in die
-     * Oberflaeche: Nur die Quelle weiss, wie viele sie hat und ob sie
-     * Abhaken kann.
+     * Haken ein Ziel findet, `deletable` die, an denen ein Loeschknopf eins
+     * findet. Alles drei gehoert hierher und nicht in die Oberflaeche: Nur
+     * die Quelle weiss, wie viele sie hat und was sie kann.
      *
-     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, string>, failed: array<int, string>, totals: array<string, int>, markable: array<int, string>}
+     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, string>, failed: array<int, string>, totals: array<string, int>, markable: array<int, string>, deletable: array<int, string>}
      */
     public function sammeln(Model $person, int $grenze): array
     {
@@ -77,6 +77,7 @@ class Quellenverzeichnis
         $gescheitert = [];
         $bestand = [];
         $abhakbar = [];
+        $loeschbar = [];
 
         foreach ($this->alle() as $quelle) {
             $art = $quelle->art();
@@ -84,6 +85,10 @@ class Quellenverzeichnis
 
             if ($quelle instanceof AbhakbareQuelle) {
                 $abhakbar[] = $art;
+            }
+
+            if ($quelle instanceof LoeschbareQuelle) {
+                $loeschbar[] = $art;
             }
 
             try {
@@ -116,6 +121,16 @@ class Quellenverzeichnis
             'failed' => $gescheitert,
             'totals' => $bestand,
             'markable' => array_values(array_unique($abhakbar)),
+            /*
+             * An welchen Arten ein LOESCHKNOPF ein Ziel findet (#9069).
+             *
+             * Getrennt von `markable`, weil es eine andere Frage ist:
+             * Abhaken ist eine Aussage ueber mich, Loeschen eine ueber die
+             * Sache. Eine Aufgabe oder einen Beleg „aus dem Posteingang zu
+             * loeschen" waere wirkungslos oder ein Datenverlust im
+             * Fremdsystem — siehe {@see LoeschbareQuelle}.
+             */
+            'deletable' => array_values(array_unique($loeschbar)),
         ];
     }
 
@@ -259,6 +274,82 @@ class Quellenverzeichnis
         }
 
         return $geaendert;
+    }
+
+    /**
+     * Diese Zeilen dieser Person loeschen (#9069).
+     *
+     * Spiegelbildlich zu {@see alsGelesen()} und mit derselben Strenge bei
+     * einer Art, die es nicht kann: eine Ausnahme und keine Null. „Keine
+     * Zeile geloescht" und „diese Art laesst sich hier gar nicht loeschen"
+     * sehen in der Oberflaeche gleich aus, und das Zweite ist ein Fehler im
+     * Verbund, den jemand sehen soll.
+     *
+     * Nur die EIGENEN Zeilen: Es gibt bewusst keinen Weg ueber die
+     * Systemgrenze, die Begruendung steht in {@see LoeschbareQuelle}.
+     *
+     * @param  array<int, string>  $ids
+     * @return int Wie viele Zeilen wirklich verschwunden sind.
+     *
+     * @throws \RuntimeException wenn diese Art hier nicht loeschbar ist.
+     */
+    public function loeschen(Model $person, string $art, array $ids): int
+    {
+        $quellen = $this->loeschbare($art);
+
+        if ($quellen === []) {
+            throw new \RuntimeException("Die Art '{$art}' kann hier nicht geloescht werden.");
+        }
+
+        $geloescht = 0;
+
+        foreach ($quellen as $quelle) {
+            $geloescht += $quelle->loeschen($person, $ids);
+        }
+
+        return $geloescht;
+    }
+
+    /**
+     * Alles dieser Art, was diese Person hier hat — auch das Gelesene.
+     *
+     * Anders als {@see allesAlsGelesen()} mit einer ART als Argument und
+     * nicht ueber alle: „Alle meine Meldungen loeschen" ist eine Aussage
+     * ueber Meldungen. Derselbe Knopf ohne Art wuerde beim naechsten
+     * loeschbaren Vokabular stillschweigend mehr mitnehmen, als draufsteht.
+     *
+     * @return int Wie viele Zeilen wirklich verschwunden sind.
+     *
+     * @throws \RuntimeException wenn diese Art hier nicht loeschbar ist.
+     */
+    public function allesLoeschen(Model $person, string $art): int
+    {
+        $quellen = $this->loeschbare($art);
+
+        if ($quellen === []) {
+            throw new \RuntimeException("Die Art '{$art}' kann hier nicht geloescht werden.");
+        }
+
+        $geloescht = 0;
+
+        foreach ($quellen as $quelle) {
+            $geloescht += $quelle->allesLoeschen($person);
+        }
+
+        return $geloescht;
+    }
+
+    /**
+     * Die loeschbaren Quellen einer Art.
+     *
+     * @return array<int, LoeschbareQuelle>
+     */
+    private function loeschbare(string $art): array
+    {
+        return array_values(array_filter(
+            $this->alle(),
+            fn (InboxQuelle $quelle): bool => $quelle instanceof LoeschbareQuelle && $quelle->art() === $art,
+        ));
     }
 
     /**

@@ -12,4 +12,8 @@ export {
 } from './abhaken';
 export { useAbhaken } from './useAbhaken';
 export type { UseAbhakenOptions, UseAbhakenResult } from './useAbhaken';
-export type { InboxData, InboxItem, InboxKind, InboxTotals, InboxMarkable } from './types';
+export { darfLoeschen, artLoeschbar, eigenerBestandDerArt, loeschFrage } from './loeschen';
+export { useLoeschen } from './useLoeschen';
+export type { UseLoeschenOptions, UseLoeschenResult } from './useLoeschen';
+export { csrfHeaders } from './csrf';
+export type { InboxData, InboxItem, InboxKind, InboxTotals, InboxMarkable, InboxDeletable } from './types';

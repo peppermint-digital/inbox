@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Peppermint\Inbox\Http\Controllers\AbhakenController;
 use Peppermint\Inbox\Http\Controllers\BestandController;
+use Peppermint\Inbox\Http\Controllers\LoeschenController;
 
 /*
 |--------------------------------------------------------------------------
@@ -39,4 +40,16 @@ Route::middleware((array) config('inbox.route.middleware', ['web', 'auth']))
             (string) config('inbox.route.bestand_path', 'posteingang/ungelesen'),
             BestandController::class,
         )->name((string) config('inbox.route.bestand_name', 'inbox.ungelesen'));
+
+        /*
+         * Der Weg hinter dem Loeschknopf (#9069).
+         *
+         * `DELETE` und nicht `POST`: Hier verschwindet etwas, und das
+         * Verb soll es sagen. Eine Nutzlast ist dabei erlaubt und noetig —
+         * die Kennungen und die Art.
+         */
+        Route::delete(
+            (string) config('inbox.route.loeschen_path', 'posteingang/zeilen'),
+            LoeschenController::class,
+        )->name((string) config('inbox.route.loeschen_name', 'inbox.loeschen'));
     });

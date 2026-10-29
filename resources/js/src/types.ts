@@ -63,6 +63,24 @@ export interface InboxMarkable {
     sources: Record<string, string[]>;
 }
 
+/**
+ * Wo ein LOESCHKNOPF ein Ziel findet (AI Brain #9069).
+ *
+ * Nur `local`, und das ist eine Entscheidung: Geloescht wird dort, wo die
+ * Sache liegt — es gibt bewusst keinen Schreibweg ueber die Systemgrenze.
+ * Deshalb fehlt hier ein `sources`, statt leer dabeizustehen; ein leeres
+ * Feld saehe aus wie „gerade nichts loeschbar" und damit wie ein Zustand,
+ * der sich aendern koennte.
+ *
+ * Und nur Arten, deren Quelle den Vertrag umsetzt. Eine Aufgabe oder einen
+ * Beleg „aus dem Posteingang zu loeschen" waere wirkungslos oder ein
+ * Datenverlust im Fremdsystem.
+ */
+export interface InboxDeletable {
+    /** Arten, die HIER geloescht werden koennen. */
+    local: string[];
+}
+
 /** Was der Server fuer die Seite liefert. */
 export interface InboxData {
     items: InboxItem[];
@@ -77,6 +95,12 @@ export interface InboxData {
     totals?: InboxTotals;
     /** Wo abgehakt werden kann. Fehlt sie, wird kein Haken gezeichnet. */
     markable?: InboxMarkable;
+    /**
+     * Wo geloescht werden kann. Fehlt sie, wird kein Loeschknopf
+     * gezeichnet — ein System auf aelterem Paketstand schickt sie nicht,
+     * und ein Knopf ins Leere ist schlechter als keiner.
+     */
+    deletable?: InboxDeletable;
     /** Systeme, die nicht geantwortet haben. */
     unreachable: string[];
     /** Eigene Quellen, die nicht konnten. */

@@ -50,6 +50,10 @@ return [
     | Symbol und die Minibar-Kachel (#1152) — ueber alle Arten und Systeme,
     | nicht nur die Meldungen dieses einen.
     |
+    | `loeschen_*` ist der Weg hinter dem Loeschknopf (#9069). Er trifft nur
+    | die EIGENEN Zeilen und nur Arten, deren Quelle `LoeschbareQuelle`
+    | umsetzt — Aufgaben und Belege also nie.
+    |
     */
     'route' => [
         'enabled' => true,
@@ -57,6 +61,8 @@ return [
         'name' => 'inbox.gelesen',
         'bestand_path' => 'posteingang/ungelesen',
         'bestand_name' => 'inbox.ungelesen',
+        'loeschen_path' => 'posteingang/zeilen',
+        'loeschen_name' => 'inbox.loeschen',
         'middleware' => ['web', 'auth'],
     ],
 

@@ -40,7 +40,7 @@ class GesamtInbox
     ) {}
 
     /**
-     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, array<string, mixed>>, counts: array<string, int>, totals: array{local: array<string, int>, sources: array<string, array<string, int>>}, markable: array{local: array<int, string>, sources: array<string, array<int, string>>}, unreachable: array<int, string>, failed: array<int, string>, labels: array{local: string, sources: array<string, string>}}
+     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, array<string, mixed>>, counts: array<string, int>, totals: array{local: array<string, int>, sources: array<string, array<string, int>>}, markable: array{local: array<int, string>, sources: array<string, array<int, string>>}, deletable: array{local: array<int, string>}, unreachable: array<int, string>, failed: array<int, string>, labels: array{local: string, sources: array<string, string>}}
      */
     public function for(Model $person, bool $frisch = false): array
     {
@@ -90,6 +90,25 @@ class GesamtInbox
             'markable' => [
                 'local' => $eigen['markable'],
                 'sources' => $fremd['markable'],
+            ],
+            /*
+             * Wo ein LOESCHKNOPF ein Ziel findet (#9069).
+             *
+             * Nur `local`, und das ist eine Entscheidung und kein
+             * Versehen: Loeschen geht bewusst nicht ueber die
+             * Systemgrenze. Die Begruendung steht in
+             * {@see \Peppermint\Inbox\Quellen\LoeschbareQuelle} — kurz:
+             * Der Hauptfall ist, seine eigenen Meldungen dort loszuwerden,
+             * wo sie liegen, und ein Schreibweg quer durch den Verbund
+             * waere die teurere Haelfte zuerst.
+             *
+             * Kein `sources`-Schluessel statt eines leeren: Ein leerer
+             * saehe aus wie „gerade nichts loeschbar" und damit wie ein
+             * Zustand, der sich aendern koennte. Dass es ihn nicht gibt,
+             * ist die ehrlichere Form — und wenn er kommt, faellt er auf.
+             */
+            'deletable' => [
+                'local' => $eigen['deletable'],
             ],
             'unreachable' => $fremd['unreachable'],
             // Eigene Quellen, die gerade nicht konnten. Eine andere Lage als

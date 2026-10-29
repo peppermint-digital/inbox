@@ -242,6 +242,109 @@ Drei Dinge, die dabei absichtlich so sind:
 
 `route.enabled => false` schaltet **beide** Routen ab, also auch diese.
 
+## Löschen — und warum es nicht wie Abhaken funktioniert
+
+Seit AI Brain #9069 kann der gemeinsame Posteingang auch löschen: einzelne
+Zeilen und „alle meine … löschen". Damit wird die alte, produkteigene
+Meldungsseite entbehrlich.
+
+Drei Entscheidungen prägen das, und alle drei sind Vorgaben von Bastian vom
+29.10.2026:
+
+### 1. Nicht jede Art ist löschbar — „Aufgaben und Belege nie"
+
+Abhaken ist eine Aussage über **mich** („gesehen"). Löschen ist eine Aussage
+über die **Sache**, und bei den meisten Arten wäre sie falsch:
+
+| Art | löschbar? | warum |
+|---|---|---|
+| Meldung | ja | Sie existiert nur, um gesehen zu werden. |
+| Aufgabe | **nie** | Die Aufgabe ist der Gegenstand, nicht die Zeile. |
+| Beleg | **nie** | Dasselbe, mit Buchhaltungsfolgen. |
+| imkr | nein | Wird abgehakt und räumt sich nach 30 Tagen selbst auf. |
+
+Deshalb ein eigener, **freiwilliger** Vertrag — genau wie `AbhakbareQuelle`:
+
+```php
+class MeldungsQuelle implements AbhakbareQuelle, ZaehlbareQuelle, LoeschbareQuelle
+{
+    public function loeschen(Model $person, array $ids): int { … }
+    public function allesLoeschen(Model $person): int { … }
+}
+```
+
+Welche Arten es können, sagt der Server als `deletable`. Die Ansicht rät
+nicht: Wo der Vertrag fehlt, gibt es keinen Knopf.
+
+### 2. Nur die EIGENEN Zeilen
+
+Abhaken geht über die Systemgrenze (`inbox.read` über den Gateway). Löschen
+**nicht**. Eine fremde Zeile hat keinen Löschknopf, und das ist kein Mangel,
+sondern die Aussage: Was dort liegt, wird dort gelöscht.
+
+Analog ginge es mit einer Fähigkeit `inbox.delete` samt Freigabe je Produkt.
+Bewusst nicht gebaut: Der Hauptfall ist, seine eigenen Meldungen dort
+loszuwerden, wo sie liegen — bei 4113 Meldungen von AI Brain ist das AI Brain.
+Einen Schreibweg quer durch den Verbund für einen Knopf zu bauen, den noch
+niemand vermisst hat, wäre die teurere Hälfte zuerst. Kommt er, ist er
+additiv: `deletable` bekommt ein `sources`.
+
+### 3. „Alle" fragt nach, einzeln nicht
+
+Die alte Meldungsseite hatte „Alle löschen" **ohne Rückfrage** — ein Klick,
+und alle Meldungen der Person waren weg, auch die gelesenen. Auf einer Seite,
+die nur Meldungen zeigte, war das vertretbar. Hier steht derselbe Knopf neben
+Reitern für Aufgaben und Belege und liest sich als „meinen ganzen Posteingang
+löschen"; bei Bastian wären es über 4000 Zeilen gewesen.
+
+Deshalb:
+
+- **Einzeln:** kein Dialog. Es trifft genau die angeklickte Zeile.
+- **Alle:** `window.confirm` mit der **Zahl** und dem **Wort der Art** —
+  „4113 Benachrichtigungen endgültig löschen?". Der Knopf heißt „Alle meine
+  Benachrichtigungen löschen" und erscheint nur im Reiter dieser Art.
+- Die Rückfrage ist als `confirm`-Prop überschreibbar — für ein Produkt mit
+  eigenem Dialog, und damit sie sich testen lässt.
+
+### Die Route
+
+`DELETE /posteingang/zeilen` (`inbox.loeschen`). `kind` ist **Pflicht**, auch
+bei `alle: true`: „Alle meine Meldungen löschen" ist eine Aussage über
+Meldungen, und ohne Art nähme derselbe Knopf beim nächsten löschbaren
+Vokabular stillschweigend mehr mit, als draufsteht.
+
+Ein Fehlschlag kommt als **502 mit dem Satz der Quelle**, nicht als
+`deleted: 0` — wer löscht und es kommt nicht an, muss das sehen.
+
+## Was von der alten Meldungsseite NICHT mitkam
+
+Vollständig verglichen am 29.10.2026, Funktion für Funktion. Sechs Lücken
+wurden gebaut (Einzellöschen, alle löschen, Filter „nur ungelesene", Filter
+nach Herkunft, Neu-laden-Knopf, Gruppierung „Neu"/„Früher"). Vier Dinge
+bewusst **nicht**, weil kein einziges Produkt sie verdrahtet hat:
+
+| | warum nicht |
+|---|---|
+| `isDuplicate` / Doppelungen aus- und einblenden | Kein Produkt übergibt das Prädikat — die Funktion lief nirgends. |
+| `renderDetails` | Ungenutzter Erweiterungspunkt. |
+| `renderActions` am Meldungs-Bauteil | Gibt es hier schon; das alte blieb ungenutzt. |
+| „Als ungelesen markieren" | Route und Hook existieren, aber es gab **gar keinen Knopf** dafür. Keine Lücke, sondern ein Endpunkt ohne Aufrufer. |
+
+Das sind vier Dinge, die man sonst nachgebaut hätte, ohne dass sie je jemand
+benutzt hat. Wer eine davon doch braucht, hat damit die Begründung zur Hand,
+warum sie fehlt — und nicht den Eindruck, sie sei vergessen worden.
+
+## Die Filter sind Darstellung, kein Abruf
+
+„Nur ungelesene" und der Herkunftsfilter laden **nichts** nach. Die Zahlen an
+den Reitern bleiben deshalb stehen und springen nicht, während man filtert.
+
+Wichtig dabei: Die Reiter trennen nach **Art**, der Herkunftsfilter nach
+**System**. Das sind zwei Achsen, und keine ersetzt die andere — „zeig mir,
+was im Manager passiert ist" ist ohne ihn nicht beantwortbar. Die
+Herkunftsknöpfe erscheinen nur, wenn in der offenen Art mehr als ein System
+vorkommt; zwischen „alles" und „alles" zu filtern ist kein Filter.
+
 ## Freigabe im Komm-Layer nicht vergessen
 
 Eine Fähigkeit ohne Eintrag in `comm_layer.gateway_grants.<slug>` ist nicht

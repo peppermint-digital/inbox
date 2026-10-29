@@ -20,14 +20,31 @@ interface Props {
 /**
  * Die Liste einer Art.
  *
- * Bewusst ohne „gelesen"- und „loeschen"-Knoepfe: Was hier steht, kommt zu
- * einem grossen Teil aus anderen Systemen, und dort faende eine solche
- * Aktion kein Ziel. Erledigt wird eine Sache da, wo sie liegt — der Klick
- * fuehrt hin.
+ * ## Die Aktionen kommen von aussen, ueber `renderActions`
+ *
+ * Hier stand bis zum 29.10.2026: „Bewusst ohne ‚gelesen'- und
+ * ‚loeschen'-Knoepfe: Was hier steht, kommt zu einem grossen Teil aus
+ * anderen Systemen, und dort faende eine solche Aktion kein Ziel."
+ *
+ * Die Begruendung war richtig und ist es noch — nur der Schluss daraus war
+ * zu weit. Inzwischen sagt der Server je Art, wo eine Aktion ein Ziel
+ * findet (`markable` seit #1096, `deletable` seit #9069), und
+ * {@see InboxPage} zeichnet den Knopf genau dort. Der geschuetzte Fall ist
+ * damit nicht weggefallen, sondern praeziser geworden: Eine FREMDE Zeile
+ * bekommt weiterhin keinen Loeschknopf, und keine Aufgabe und kein Beleg
+ * ueberhaupt einen.
+ *
+ * Diese Komponente selbst bleibt ohne eigene Aktion. Sie zeichnet, was ihr
+ * `renderActions` gibt — das ist der Grund, warum der Umbau sie nicht
+ * anfassen musste.
  */
 export function InboxList({ items, formatTime, localLabel, sourceLabels, onOpen, renderActions, empty }: Props) {
     if (items.length === 0) {
-        return <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">{empty ?? 'Nichts offen.'}</div>;
+        return (
+            <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                {empty ?? 'Nichts offen.'}
+            </div>
+        );
     }
 
     return (
@@ -83,15 +100,34 @@ function Zeile({
     const hatZiel = typeof item.link === 'string' && item.link !== '';
 
     return (
-        <div className={cn('group rounded-lg border p-3', frisch ? inboxSurfaceClass(item.color) : 'transition-colors hover:bg-muted/30')}>
+        <div
+            className={cn(
+                'group rounded-lg border p-3',
+                frisch ? inboxSurfaceClass(item.color) : 'transition-colors hover:bg-muted/30',
+            )}
+        >
             <div className="flex items-start gap-3">
-                <div className={cn('mt-0.5 shrink-0 rounded-full p-1.5', frisch ? inboxSurfaceClass(item.color) : 'bg-muted')}>
+                <div
+                    className={cn(
+                        'mt-0.5 shrink-0 rounded-full p-1.5',
+                        frisch ? inboxSurfaceClass(item.color) : 'bg-muted',
+                    )}
+                >
                     <Symbol className={cn('h-4 w-4', frisch ? inboxTextClass(item.color) : 'text-muted-foreground')} />
                 </div>
 
-                <div className={cn('min-w-0 flex-1', hatZiel ? 'cursor-pointer' : 'cursor-default')} onClick={() => onOpen(item)}>
+                <div
+                    className={cn('min-w-0 flex-1', hatZiel ? 'cursor-pointer' : 'cursor-default')}
+                    onClick={() => onOpen(item)}
+                >
                     <div className="flex flex-wrap items-center gap-2">
-                        <p className={cn('font-medium', hatZiel && 'hover:underline', frisch ? inboxTextClass(item.color) : 'truncate')}>
+                        <p
+                            className={cn(
+                                'font-medium',
+                                hatZiel && 'hover:underline',
+                                frisch ? inboxTextClass(item.color) : 'truncate',
+                            )}
+                        >
                             {item.title}
                         </p>
                         <Badge variant="outline">{herkunft}</Badge>
