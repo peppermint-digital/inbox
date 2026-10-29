@@ -69,6 +69,35 @@ class FremdeEintraege
                 // in vier Oberflaechen vier verschiedene Woerter.
                 $zeile['source'] = $schluessel;
                 $zeile['source_label'] = $wort;
+
+                /*
+                 * Ein noch relativer Verweis wird HIER absolut (#1151).
+                 *
+                 * Das Werkzeug der Gegenseite tut das seit inbox v0.6.0
+                 * selbst. Diese Zeile ist fuer das System, das die Fassung
+                 * noch nicht hat — und das ist beim Ausrollen immer
+                 * mindestens eines.
+                 *
+                 * Gemessen am 29.10.2026, nachdem nur AI Brain die neue
+                 * Fassung hatte: Der Manager gab weiter
+                 * `/emails?account=3` heraus. In AI Brains Posteingang sah
+                 * die Zeile aus wie von hier, der Router forderte
+                 * `brain…/emails?account=3` an, bekam keine Inertia-Antwort
+                 * — und tat sichtbar nichts. Zeigefinger, Klick ins Leere.
+                 *
+                 * `Verweise` laesst einen absoluten Verweis unberuehrt,
+                 * diese Zeile kostet also nichts, sobald die Gegenseite
+                 * nachgezogen ist. Fehlt die Adresse des Anbieters, bleibt
+                 * der Verweis relativ — eine geratene Adresse waere
+                 * schlechter als eine falsche Seite.
+                 */
+                if (isset($zeile['link'])) {
+                    $zeile['link'] = Verweise::einzeln(
+                        (string) $zeile['link'],
+                        isset($anbieter['url']) ? (string) $anbieter['url'] : null,
+                    );
+                }
+
                 $zeilen[] = $zeile;
             }
 

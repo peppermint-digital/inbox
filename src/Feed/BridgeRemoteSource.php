@@ -18,8 +18,6 @@ class BridgeRemoteSource implements RemoteSource
 {
     private const HUB_SLUG = 'ai-brain';
 
-    private const HUB = ['slug' => self::HUB_SLUG, 'key' => self::HUB_SLUG, 'label' => 'AI Brain'];
-
     public function anbieter(): array
     {
         if (! Bruecke::eingerichtet()) {
@@ -29,7 +27,37 @@ class BridgeRemoteSource implements RemoteSource
             return [];
         }
 
-        return array_merge([self::HUB], AiBrain::providers(FremdeEintraege::CAPABILITY));
+        return array_merge([$this->hub()], AiBrain::providers(FremdeEintraege::CAPABILITY));
+    }
+
+    /**
+     * Die Nabe als Anbieterzeile — von Hand, weil sie in keinem
+     * Verzeichnis steht.
+     *
+     * ## Warum `url` dazugehoert (#1151)
+     *
+     * Die uebrigen Anbieter bringen ihre Adresse aus dem Verzeichnis mit
+     * (`web_url`), und {@see FremdeEintraege} macht damit einen noch
+     * relativen Verweis absolut. Die Nabe braucht dieselbe Angabe, und sie
+     * steht in der eigenen Konfiguration: Es ist die Adresse, mit der
+     * dieses Produkt AI Brain ohnehin anspricht.
+     *
+     * Ohne sie wuerde ausgerechnet der groesste Beitraeger weiter relative
+     * Verweise liefern, solange AI Brain nicht nachgezogen ist — und ein
+     * `/bugs/1122` meint in diesem Produkt nichts.
+     *
+     * @return array{slug: string, key: string, label: string, url: string|null}
+     */
+    private function hub(): array
+    {
+        $adresse = trim((string) config('ai-brain-bridge.base_url'));
+
+        return [
+            'slug' => self::HUB_SLUG,
+            'key' => self::HUB_SLUG,
+            'label' => 'AI Brain',
+            'url' => $adresse === '' ? null : $adresse,
+        ];
     }
 
     public function holen(string $slug, string $adresse, int $grenze): array

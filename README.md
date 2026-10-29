@@ -73,6 +73,31 @@ Aufgabe mit derselben Nummer.
 Eine Quelle darf ihren Verweis weiter absolut bauen; mehrere Produkte tun
 das. Nötig ist es nicht mehr.
 
+### Und beim Einsammeln noch einmal — für die Ausrollücke
+
+Beim Ausrollen hat die Gegenseite diese Fassung immer irgendwo noch nicht.
+`FremdeEintraege` macht deshalb einen **noch relativen** fremden Verweis mit
+der Adresse des Anbieters absolut (`anbieter()['url']`, aus `web_url` im
+Verzeichnis — dieselbe Angabe, die der Kalender für „öffne den Termin dort"
+benutzt).
+
+Das ist kein Gürtel-und-Hosenträger ohne Anlass. Am 29.10.2026, als nur AI
+Brain die neue Fassung hatte, gab der Manager weiter `/emails?account=3`
+heraus. Im Posteingang von AI Brain sah die Zeile dadurch aus wie eine
+eigene: Der Inertia-Router forderte `brain…/emails?account=3` an, bekam keine
+Inertia-Antwort — und tat **sichtbar nichts**. Zeigefinger, Klick ins Leere.
+Vorher wäre eine falsche 404-Seite erschienen; das ist schlechter, aber
+sichtbar.
+
+Fehlt die Adresse des Anbieters, bleibt der Verweis relativ. Eine geratene
+Adresse wäre schlechter als eine falsche Seite — sie zeigte mit Nachdruck
+irgendwohin.
+
+Dazu in der Oberfläche: Eine Zeile mit `source` gehört **nie** in den Router
+der aufnehmenden Anwendung. `oeffneVerweis` aus `peppermint/notifications`
+entscheidet am Ziel, und das ist richtig — aber nur, solange das Ziel stimmt.
+Für eine fremde Zeile also kein Router, sondern ein voller Seitenaufruf.
+
 ## Zwei Fallen, in die diese Ansicht schon gelaufen ist
 
 **Global kappen.** Ein Deckel über die zusammengefügte Liste lässt das

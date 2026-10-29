@@ -7,6 +7,7 @@ use Peppermint\Inbox\Arten\InboxArten;
 use Peppermint\Inbox\Feed\Eintrag;
 use Peppermint\Inbox\Feed\FremdeEintraege;
 use Peppermint\Inbox\Feed\GesamtInbox;
+use Peppermint\Inbox\Feed\RemoteSource;
 use Peppermint\Inbox\Quellen\AbhakbareQuelle;
 use Peppermint\Inbox\Quellen\InboxQuelle;
 use Peppermint\Inbox\Quellen\Quellenverzeichnis;
@@ -131,6 +132,77 @@ function eintrag(string $art, string $titel, array $u = []): Eintrag
         zeitpunkt: $u['zeitpunkt'] ?? now()->toIso8601String(),
         ungelesen: $u['ungelesen'] ?? true,
     );
+}
+
+/*
+|--------------------------------------------------------------------------
+| Der Verweis einer fremden Zeile (AI Brain #1151)
+|--------------------------------------------------------------------------
+|
+| Das Werkzeug der Gegenseite macht ihn selbst absolut. Diese Tests sind
+| fuer das System, das die Fassung noch NICHT hat — beim Ausrollen ist das
+| immer mindestens eines.
+|
+*/
+
+it('macht einen noch relativen fremden Verweis mit der Adresse des Anbieters absolut', function (): void {
+    // Gemessen am 29.10.2026: Der Manager gab `/emails?account=3` heraus,
+    // in AI Brains Posteingang sah die Zeile aus wie von hier, und der
+    // Klick lief ins Leere — kein Seitenwechsel, keine Fehlermeldung.
+    fremdeMitAdresse(
+        [fremdeZeile(['link' => '/emails?account=3'])],
+        'https://pm.peppermint-digital.com',
+    );
+
+    $inbox = app(GesamtInbox::class)->for($this->ich);
+
+    expect($inbox['items'][0]['link'])->toBe('https://pm.peppermint-digital.com/emails?account=3');
+});
+
+it('laesst einen fremden Verweis in Ruhe, der schon absolut ist', function (): void {
+    // Sobald die Gegenseite nachgezogen ist, ist das der Normalfall — und
+    // ein zweites Praefix machte aus einem richtigen Verweis einen kaputten.
+    fremdeMitAdresse(
+        [fremdeZeile(['link' => 'https://crm.peppermint-digital.com/kontakte/7'])],
+        'https://pm.peppermint-digital.com',
+    );
+
+    expect(app(GesamtInbox::class)->for($this->ich)['items'][0]['link'])
+        ->toBe('https://crm.peppermint-digital.com/kontakte/7');
+});
+
+it('laesst den Verweis relativ, wenn das System keine Adresse nennt', function (): void {
+    // Ein geratener Host waere schlechter als eine falsche Seite: Er zeigte
+    // mit Nachdruck irgendwohin. So bleibt der Fehler da, wo er entstand,
+    // und die Oberflaeche behandelt die Zeile als fremd.
+    fremdeMitAdresse([fremdeZeile(['link' => '/emails?account=3'])], null);
+
+    expect(app(GesamtInbox::class)->for($this->ich)['items'][0]['link'])
+        ->toBe('/emails?account=3');
+});
+
+/** Die Holer-Seite mit EINEM Anbieter, dessen Adresse bekannt ist (oder nicht). */
+function fremdeMitAdresse(array $zeilen, ?string $adresse): void
+{
+    $quelle = Mockery::mock(RemoteSource::class);
+    $quelle->shouldReceive('anbieter')->andReturn([
+        array_filter([
+            'slug' => 'peppermint-manager',
+            'key' => 'peppermint-manager',
+            'label' => 'Peppermint Manager',
+            'url' => $adresse,
+        ], static fn ($wert): bool => $wert !== null),
+    ]);
+    $quelle->shouldReceive('holen')->andReturn([
+        'items' => $zeilen,
+        'kinds' => [],
+        'failed' => [],
+        'totals' => [],
+        'markable' => [],
+    ]);
+
+    app()->instance(FremdeEintraege::class, new FremdeEintraege($quelle));
+    app()->forgetInstance(GesamtInbox::class);
 }
 
 /** Die Holer-Seite durch feste Antworten ersetzen. */

@@ -20,7 +20,23 @@ interface RemoteSource
     /**
      * Welche Systeme ueberhaupt antworten koennen.
      *
-     * @return array<int, array{slug: string, key?: string, label?: string}>
+     * ## `url` — die Adresse der Oberflaeche
+     *
+     * Freiwillig, aber wichtig (AI Brain #1151): Damit wird ein Verweis
+     * absolut gemacht, der noch relativ hereinkommt. Ein System auf
+     * aelterem Paketstand gibt `/emails?account=3` heraus, und das meint
+     * hier etwas anderes oder nichts — siehe {@see FremdeEintraege}.
+     *
+     * Die Adresse liegt im Komm-Layer schon bereit: Der Anbieter-Endpunkt
+     * von AI Brain liefert `web_url`, ausdruecklich fuer das Sprungziel
+     * „oeffne die Sache dort", und der Kalender benutzt sie seit laengerem.
+     * Es ist NICHT die Adresse des MCP-Endpunkts — dafuer taugt `/mcp/...`
+     * nicht.
+     *
+     * Fehlt sie, bleibt ein relativer Verweis relativ. Das ist die
+     * vorsichtige Richtung: eine geratene Adresse waere schlechter.
+     *
+     * @return array<int, array{slug: string, key?: string, label?: string, url?: string|null}>
      */
     public function anbieter(): array;
 
