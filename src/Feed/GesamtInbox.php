@@ -40,7 +40,7 @@ class GesamtInbox
     ) {}
 
     /**
-     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, array<string, mixed>>, counts: array<string, int>, totals: array{local: array<string, int>, sources: array<string, array<string, int>>}, markable: array{local: array<int, string>, sources: array<string, array<int, string>>}, deletable: array{local: array<int, string>}, unreachable: array<int, string>, failed: array<int, string>, labels: array{local: string, sources: array<string, string>}}
+     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, array<string, mixed>>, counts: array<string, int>, totals: array{local: array<string, int>, sources: array<string, array<string, int>>}, markable: array{local: array<int, string>, sources: array<string, array<int, string>>}, deletable: array{local: array<int, string>, sources: array<string, array<int, string>>}, unreachable: array<int, string>, failed: array<int, string>, labels: array{local: string, sources: array<string, string>}}
      */
     public function for(Model $person, bool $frisch = false): array
     {
@@ -94,21 +94,17 @@ class GesamtInbox
             /*
              * Wo ein LOESCHKNOPF ein Ziel findet (#9069).
              *
-             * Nur `local`, und das ist eine Entscheidung und kein
-             * Versehen: Loeschen geht bewusst nicht ueber die
-             * Systemgrenze. Die Begruendung steht in
-             * {@see \Peppermint\Inbox\Quellen\LoeschbareQuelle} — kurz:
-             * Der Hauptfall ist, seine eigenen Meldungen dort loszuwerden,
-             * wo sie liegen, und ein Schreibweg quer durch den Verbund
-             * waere die teurere Haelfte zuerst.
-             *
-             * Kein `sources`-Schluessel statt eines leeren: Ein leerer
-             * saehe aus wie „gerade nichts loeschbar" und damit wie ein
-             * Zustand, der sich aendern koennte. Dass es ihn nicht gibt,
-             * ist die ehrlichere Form — und wenn er kommt, faellt er auf.
+             * Hier stand bis v0.8.0 nur `local`, mit der Begruendung
+             * „Loeschen geht bewusst nicht ueber die Systemgrenze". Dann
+             * stand bei Bastian (pm #10227) der groesste Teil seines
+             * Posteingangs aus AI Brain da, und nichts davon liess sich
+             * wegmachen. Seither meldet jedes System selbst, was bei ihm
+             * loeschbar ist — und nur das bekommt einen Muelleimer. Ein
+             * System auf aelterem Stand meldet nichts und bekommt keinen.
              */
             'deletable' => [
                 'local' => $eigen['deletable'],
+                'sources' => $fremd['deletable'],
             ],
             'unreachable' => $fremd['unreachable'],
             // Eigene Quellen, die gerade nicht konnten. Eine andere Lage als
@@ -249,7 +245,7 @@ class GesamtInbox
     }
 
     /**
-     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, array<string, mixed>>, unreachable: array<int, string>, failed: array<int, string>, totals: array<string, array<string, int>>, markable: array<string, array<int, string>>}
+     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, array<string, mixed>>, unreachable: array<int, string>, failed: array<int, string>, totals: array<string, array<string, int>>, markable: array<string, array<int, string>>, deletable: array<string, array<int, string>>}
      */
     private function fremdeZeilen(Model $person, int $grenze, bool $frisch): array
     {
@@ -257,10 +253,10 @@ class GesamtInbox
 
         if (! is_string($adresse) || trim($adresse) === '') {
             // Ohne Adresse kann kein anderes System den Menschen finden.
-            return ['items' => [], 'kinds' => [], 'unreachable' => [], 'failed' => [], 'totals' => [], 'markable' => []];
+            return ['items' => [], 'kinds' => [], 'unreachable' => [], 'failed' => [], 'totals' => [], 'markable' => [], 'deletable' => []];
         }
 
-        $schluessel = 'inbox.fremde.'.sha1($adresse);
+        $schluessel = self::pufferSchluessel($adresse);
 
         if ($frisch) {
             Cache::forget($schluessel);
@@ -271,13 +267,56 @@ class GesamtInbox
         // Vorgaben hier kosten nichts und ersparen ein „undefined" in der
         // Oberflaeche in genau der Minute, in der jemand nachsieht.
         return array_merge(
-            ['items' => [], 'kinds' => [], 'unreachable' => [], 'failed' => [], 'totals' => [], 'markable' => []],
+            ['items' => [], 'kinds' => [], 'unreachable' => [], 'failed' => [], 'totals' => [], 'markable' => [], 'deletable' => []],
             Cache::remember(
                 $schluessel,
                 self::HALTBAR,
                 fn (): array => $this->fremde->holen($adresse, $grenze),
             ),
         );
+    }
+
+    /**
+     * Was die anderen Systeme fuer diese Person koennen — je Herkunft die
+     * abhakbaren und die loeschbaren Arten (pm #10227).
+     *
+     * Aus DEMSELBEN Puffer wie die Seite: „Alle als gelesen" soll genau die
+     * Systeme treffen, deren Zeilen die Person gerade vor sich hat, und
+     * dafuer nicht noch einmal ueberall anklopfen.
+     *
+     * @return array{markable: array<string, array<int, string>>, deletable: array<string, array<int, string>>}
+     */
+    public function fremdeFaehigkeiten(Model $person): array
+    {
+        $fremd = $this->fremdeZeilen($person, $this->grenze(), false);
+
+        return [
+            'markable' => (array) $fremd['markable'],
+            'deletable' => (array) $fremd['deletable'],
+        ];
+    }
+
+    /**
+     * Den Puffer der fremden Zeilen einer Person verwerfen (pm #10227).
+     *
+     * Nach jedem Schreiben in ein anderes System. Ohne das kam nach dem
+     * Abhaken fuer bis zu einer Minute die ALTE Fassung zurueck: Die Zeile
+     * stand wieder als ungelesen da, das Abzeichen zaehlte sie weiter, und
+     * es sah aus, als sei nichts passiert — Bastians „die Zahlen
+     * veraendern sich nicht".
+     */
+    public static function pufferVergessen(Model $person): void
+    {
+        $adresse = $person->getAttribute('email');
+
+        if (is_string($adresse) && trim($adresse) !== '') {
+            Cache::forget(self::pufferSchluessel($adresse));
+        }
+    }
+
+    private static function pufferSchluessel(string $adresse): string
+    {
+        return 'inbox.fremde.'.sha1($adresse);
     }
 
     private function grenze(): int

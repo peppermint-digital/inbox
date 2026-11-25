@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { csrfHeaders } from './csrf';
 import { zeilenSchluessel } from './abhaken';
+import { meldePosteingangGeaendert } from './ereignis';
 import type { InboxItem } from './types';
 
 /**
@@ -11,8 +12,9 @@ import type { InboxItem } from './types';
  *
  * 1. **`DELETE` statt `POST`.** Hier verschwindet etwas, und das Verb soll
  *    es sagen.
- * 2. **Keine Herkunft in der Nutzlast.** Gelöscht wird nur Eigenes — siehe
- *    `loeschen.ts`. Ein `source`-Feld gäbe es nur, um immer `null` zu sein.
+ * 2. **Die Herkunft fährt mit (seit v0.8.0, pm #10227).** Bis dahin wurde
+ *    nur Eigenes gelöscht. Jetzt geht eine fremde Zeile dorthin, wo sie
+ *    liegt — wenn ihr System die Art als löschbar meldet (`loeschen.ts`).
  * 3. **`alle` braucht die ART.** „Alle meine Meldungen löschen" ist eine
  *    Aussage über Meldungen; ohne Art nähme derselbe Knopf beim nächsten
  *    löschbaren Vokabular stillschweigend mehr mit, als draufsteht.
@@ -84,6 +86,16 @@ export function useLoeschen(options: UseLoeschenOptions = {}): UseLoeschenResult
                     return false;
                 }
 
+                if (antwort.ok) {
+                    const daten = (await antwort.clone().json().catch(() => null)) as { failed?: string[] } | null;
+                    const gescheitert = daten?.failed;
+
+                    // „Alle der Art" erledigt, was ging, und nennt den Rest.
+                    if (Array.isArray(gescheitert) && gescheitert.length > 0) {
+                        setFehler(`Nicht überall gelöscht: ${gescheitert.join(', ')}`);
+                    }
+                }
+
                 if (!antwort.ok) {
                     // Der Satz des Servers, nicht ein eigener: Er nennt den
                     // Grund. Und er gehört SICHTBAR in die Ansicht — wer
@@ -99,6 +111,7 @@ export function useLoeschen(options: UseLoeschenOptions = {}): UseLoeschenResult
                 }
 
                 onChanged?.();
+                meldePosteingangGeaendert();
 
                 return true;
             } catch (ursache) {
@@ -131,10 +144,16 @@ export function useLoeschen(options: UseLoeschenOptions = {}): UseLoeschenResult
                 return;
             }
 
-            const gleiche = zeilen.filter((z) => z.kind === erste.kind && !z.source);
+            // Eine Nutzlast je Herkunft UND Art, wie beim Abhaken. Hier stand
+            // bis v0.8.0 `!z.source` — mit einer fremden Zeile vorn blieb
+            // `gleiche` leer, und der Rest war wieder die ganze Liste.
+            const gleiche = zeilen.filter(
+                (z) => z.kind === erste.kind && (z.source ?? null) === (erste.source ?? null),
+            );
 
             if (gleiche.length > 0) {
                 const erfolg = await schreiben({
+                    source: erste.source ?? null,
                     kind: erste.kind,
                     ids: gleiche.map((z) => z.id),
                 });

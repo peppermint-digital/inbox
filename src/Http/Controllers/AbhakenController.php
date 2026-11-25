@@ -55,14 +55,19 @@ class AbhakenController
         ]);
 
         try {
-            $geaendert = ($daten['alle'] ?? false)
-                ? $abhaken->alleEigenen($person)
-                : $abhaken->zeilen(
-                    $person,
-                    $daten['source'] ?? null,
-                    (string) $daten['kind'],
-                    $daten['ids'],
-                );
+            if ($daten['alle'] ?? false) {
+                // Hier und drueben (pm #10227). Ein System, das nicht
+                // konnte, steht in `failed` — die anderen sind trotzdem
+                // erledigt, deshalb kein 502.
+                return response()->json($abhaken->alle($person));
+            }
+
+            $geaendert = $abhaken->zeilen(
+                $person,
+                $daten['source'] ?? null,
+                (string) $daten['kind'],
+                $daten['ids'],
+            );
         } catch (Throwable $fehler) {
             return response()->json([
                 // Der Wortlaut der Quelle, nicht ein eigener: Er nennt das

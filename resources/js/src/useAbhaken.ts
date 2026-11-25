@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
-import { istEigenAbhakbar, zeilenSchluessel } from './abhaken';
+import { zeilenSchluessel } from './abhaken';
 import { csrfHeaders } from './csrf';
+import { meldePosteingangGeaendert } from './ereignis';
 import type { InboxItem, InboxMarkable } from './types';
 
 /**
@@ -30,28 +31,42 @@ export interface UseAbhakenOptions {
 export interface UseAbhakenResult {
     /** Schluessel der Zeilen, die in dieser Sitzung abgehakt wurden. */
     abgehakt: Set<string>;
-    /** Ob „alle eigenen" gelaufen ist. */
+    /**
+     * Ob „alle" gelaufen ist — hier und in jedem System, das abhaken kann
+     * (seit v0.8.0, pm #10227).
+     */
+    alleAbgehakt: boolean;
+    /** @deprecated Seit v0.8.0 gleich {@link alleAbgehakt}. */
     alleEigenenAbgehakt: boolean;
     /** Laeuft gerade ein Schreibvorgang? */
     laeuft: boolean;
     /** Was schiefging — oder `null`. Gehoert in die Ansicht, nicht ins Log. */
     fehler: string | null;
     abhaken: (zeilen: InboxItem[]) => Promise<void>;
+    /** Alles abhaken — hier und drüben. */
+    alle: () => Promise<void>;
+    /** @deprecated Seit v0.8.0 gleich {@link alle}. */
     alleEigenen: () => Promise<void>;
+}
+
+interface Antwort {
+    marked?: number;
+    /** Systeme, die „alle" nicht angenommen haben. */
+    failed?: string[];
 }
 
 export function useAbhaken(options: UseAbhakenOptions = {}): UseAbhakenResult {
     const { href = '/posteingang/gelesen', onChanged } = options;
 
     const [abgehakt, setAbgehakt] = useState<Set<string>>(() => new Set());
-    const [alleEigenenAbgehakt, setAlleEigenenAbgehakt] = useState(false);
+    const [alleAbgehakt, setAlleAbgehakt] = useState(false);
     const [laeuft, setLaeuft] = useState(false);
     const [fehler, setFehler] = useState<string | null>(null);
 
     const schreiben = useCallback(
-        async (nutzlast: Record<string, unknown>): Promise<boolean> => {
+        async (nutzlast: Record<string, unknown>): Promise<Antwort | null> => {
             if (!href) {
-                return false;
+                return null;
             }
 
             setLaeuft(true);
@@ -67,6 +82,16 @@ export function useAbhaken(options: UseAbhakenOptions = {}): UseAbhakenResult {
                         ...csrfHeaders(),
                     },
                     body: JSON.stringify(nutzlast),
+                    /*
+                     * `keepalive` (pm #10227): Wer eine Zeile OEFFNET,
+                     * verlaesst bei einer fremden Zeile die Seite. Ohne
+                     * diese Angabe bricht der Browser die Anfrage mit dem
+                     * Seitenwechsel ab — die Zeile stand beim Zurueckkommen
+                     * wieder als ungelesen da, und die Zahl war dieselbe.
+                     * Bastian: „Auch wenn ich in einem drin war und wieder
+                     * zurueckgehe, bleibt trotzdem die Anzahl gleich."
+                     */
+                    keepalive: true,
                 });
 
                 if (antwort.status === 419) {
@@ -75,7 +100,7 @@ export function useAbhaken(options: UseAbhakenOptions = {}): UseAbhakenResult {
                     // Leere — jeder Klick quittungslos.
                     window.location.reload();
 
-                    return false;
+                    return null;
                 }
 
                 if (!antwort.ok) {
@@ -90,16 +115,26 @@ export function useAbhaken(options: UseAbhakenOptions = {}): UseAbhakenResult {
 
                     setFehler(daten?.message ?? `Das Abhaken kam nicht an (${antwort.status}).`);
 
-                    return false;
+                    return null;
+                }
+
+                const daten = ((await antwort.json().catch(() => null)) ?? {}) as Antwort;
+
+                // „Alle" erledigt, was ging, und nennt, was nicht ging.
+                // Das gehoert gesagt — sonst steht dort weiter etwas, und
+                // der Knopf hat „alle" behauptet.
+                if (Array.isArray(daten.failed) && daten.failed.length > 0) {
+                    setFehler(`Nicht überall angekommen: ${daten.failed.join(', ')}`);
                 }
 
                 onChanged?.();
+                meldePosteingangGeaendert();
 
-                return true;
+                return daten;
             } catch (ursache) {
                 setFehler(ursache instanceof Error ? ursache.message : 'Das Abhaken kam nicht an.');
 
-                return false;
+                return null;
             } finally {
                 setLaeuft(false);
             }
@@ -136,7 +171,7 @@ export function useAbhaken(options: UseAbhakenOptions = {}): UseAbhakenResult {
                 ids: gleiche.map((z) => z.id),
             });
 
-            if (erfolg) {
+            if (erfolg !== null) {
                 setAbgehakt((bisher) => {
                     const neu = new Set(bisher);
                     gleiche.forEach((z) => neu.add(zeilenSchluessel(z)));
@@ -157,18 +192,24 @@ export function useAbhaken(options: UseAbhakenOptions = {}): UseAbhakenResult {
         [schreiben],
     );
 
-    const alleEigenen = useCallback(async (): Promise<void> => {
-        if (await schreiben({ alle: true })) {
-            setAlleEigenenAbgehakt(true);
+    const alle = useCallback(async (): Promise<void> => {
+        const daten = await schreiben({ alle: true });
+
+        // Nur wenn NIRGENDS etwas scheiterte, gilt die ganze Liste als
+        // gelesen. Sonst kommt der wahre Stand mit `onChanged` vom Server.
+        if (daten !== null && (daten.failed ?? []).length === 0) {
+            setAlleAbgehakt(true);
         }
     }, [schreiben]);
 
     return {
         abgehakt,
-        alleEigenenAbgehakt,
+        alleAbgehakt,
+        alleEigenenAbgehakt: alleAbgehakt,
         laeuft,
         fehler,
         abhaken,
-        alleEigenen,
+        alle,
+        alleEigenen: alle,
     };
 }

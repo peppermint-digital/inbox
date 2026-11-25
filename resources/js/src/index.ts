@@ -8,12 +8,14 @@ export {
     nochUngelesen,
     bestandJeArt,
     eigenerBestandAbhakbar,
+    bestandAbhakbar,
     hinweisZurListe,
 } from './abhaken';
 export { useAbhaken } from './useAbhaken';
 export type { UseAbhakenOptions, UseAbhakenResult } from './useAbhaken';
-export { darfLoeschen, artLoeschbar, eigenerBestandDerArt, loeschFrage } from './loeschen';
+export { darfLoeschen, artLoeschbar, eigenerBestandDerArt, loeschbarerBestandDerArt, loeschFrage } from './loeschen';
 export { useLoeschen } from './useLoeschen';
 export type { UseLoeschenOptions, UseLoeschenResult } from './useLoeschen';
 export { csrfHeaders } from './csrf';
 export type { InboxData, InboxItem, InboxKind, InboxTotals, InboxMarkable, InboxDeletable } from './types';
+export { POSTEINGANG_GEAENDERT, meldePosteingangGeaendert } from './ereignis';

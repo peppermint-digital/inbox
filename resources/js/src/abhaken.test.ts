@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+    bestandAbhakbar,
     bestandJeArt,
     darfAbhaken,
     eigenerBestandAbhakbar,
@@ -85,9 +86,18 @@ describe('nochUngelesen', () => {
         expect(nochUngelesen(eine, new Set(), false, markable)).toBe(true);
     });
 
-    it('nimmt nach „alle eigenen" die eigenen, aber nicht die fremden', () => {
+    it('nimmt nach „alle" jede abhakbare Zeile mit, auch die fremden (pm #10227)', () => {
+        // Bis v0.8.0 blieb die fremde hier ungelesen: „alle" hiess „alle
+        // eigenen". Bei Bastian waren das 1 von 1461.
         expect(nochUngelesen(zeile(), new Set(), true, markable)).toBe(false);
-        expect(nochUngelesen(zeile({ source: 'peppermint-crm' }), new Set(), true, markable)).toBe(true);
+        expect(nochUngelesen(zeile({ source: 'peppermint-crm' }), new Set(), true, markable)).toBe(false);
+    });
+
+    it('laesst nach „alle" eine Zeile stehen, die keinen Haken bekaeme', () => {
+        // Ein System ohne `inbox.read` (oder eine Art ohne Vertrag) wurde
+        // nicht gefragt — die Zeile ist drueben weiter ungelesen.
+        expect(nochUngelesen(zeile({ source: 'peppermint-verwaltung' }), new Set(), true, markable)).toBe(true);
+        expect(nochUngelesen(zeile({ kind: 'aufgabe' }), new Set(), true, markable)).toBe(true);
     });
 
     it('unterscheidet Zeilen gleicher Kennung aus zwei Systemen', () => {
@@ -143,5 +153,21 @@ describe('hinweisZurListe', () => {
         // Ein Hinweis, der immer steht, wird nicht gelesen.
         expect(hinweisZurListe(50, 50)).toBeNull();
         expect(hinweisZurListe(50, 3)).toBeNull();
+    });
+});
+
+describe('bestandAbhakbar (pm #10227)', () => {
+    it('nimmt hier und jedes System, das die Art abhaken kann', () => {
+        // Bastians Lage am 25.11.2026: 1 eigene Meldung, 855 Meldungen und
+        // 465 imkr in AI Brain, beide dort abhakbar.
+        const totals: InboxTotals = { local: { notification: 1, task: 14 }, sources: { 'ai-brain': { notification: 855, imkr: 465 } } };
+        const markable: InboxMarkable = { local: ['notification'], sources: { 'ai-brain': ['notification', 'imkr'] } };
+
+        expect(bestandAbhakbar(totals, markable)).toBe(1321);
+    });
+
+    it('laesst ein System ohne Haken aus', () => {
+        expect(bestandAbhakbar({ local: {}, sources: { crm: { notification: 9 } } }, { local: [], sources: {} })).toBe(0);
+        expect(bestandAbhakbar(undefined, undefined)).toBe(0);
     });
 });

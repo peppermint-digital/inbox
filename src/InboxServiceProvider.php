@@ -8,6 +8,7 @@ use Peppermint\Inbox\Feed\Abhaken;
 use Peppermint\Inbox\Feed\BridgeRemoteSource;
 use Peppermint\Inbox\Feed\FremdeEintraege;
 use Peppermint\Inbox\Feed\GesamtInbox;
+use Peppermint\Inbox\Feed\Loeschen;
 use Peppermint\Inbox\Feed\RemoteSource;
 use Peppermint\Inbox\Quellen\Quellenverzeichnis;
 
@@ -35,6 +36,7 @@ class InboxServiceProvider extends ServiceProvider
         $this->app->singleton(FremdeEintraege::class);
         $this->app->singleton(GesamtInbox::class);
         $this->app->singleton(Abhaken::class);
+        $this->app->singleton(Loeschen::class);
 
         // Woher die fremden Eintraege kommen, entscheidet das aufnehmende
         // System: Ein Produkt fragt ueber die Bruecke, AI Brain ueber

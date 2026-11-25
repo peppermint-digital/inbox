@@ -245,11 +245,11 @@ function darfAbhaken(item, markable) {
 function istEigenAbhakbar(item, markable) {
   return !item.source && darfAbhaken(item, markable);
 }
-function nochUngelesen(item, abgehakt, alleEigenenAbgehakt, markable) {
+function nochUngelesen(item, abgehakt, alleAbgehakt, markable) {
   if (!item.is_unread || abgehakt.has(zeilenSchluessel(item))) {
     return false;
   }
-  return !(alleEigenenAbgehakt && istEigenAbhakbar(item, markable));
+  return !(alleAbgehakt && darfAbhaken(item, markable));
 }
 function bestandJeArt(totals) {
   if (!totals) {
@@ -269,6 +269,18 @@ function eigenerBestandAbhakbar(totals, markable) {
   }
   return (markable.local ?? []).reduce((summe, art) => summe + (totals.local?.[art] ?? 0), 0);
 }
+function bestandAbhakbar(totals, markable) {
+  if (!totals || !markable) {
+    return 0;
+  }
+  let summe = eigenerBestandAbhakbar(totals, markable);
+  for (const [herkunft, arten] of Object.entries(markable.sources ?? {})) {
+    for (const art of arten ?? []) {
+      summe += totals.sources?.[herkunft]?.[art] ?? 0;
+    }
+  }
+  return summe;
+}
 function hinweisZurListe(angezeigt, bestand) {
   if (bestand <= angezeigt) {
     return null;
@@ -278,16 +290,29 @@ function hinweisZurListe(angezeigt, bestand) {
 
 // resources/js/src/loeschen.ts
 function darfLoeschen(item, deletable) {
-  if (item.source || !deletable) {
+  if (!deletable) {
     return false;
   }
-  return (deletable.local ?? []).includes(item.kind);
+  const arten = item.source ? deletable.sources?.[item.source] ?? [] : deletable.local ?? [];
+  return arten.includes(item.kind);
 }
 function artLoeschbar(art, deletable) {
-  return (deletable?.local ?? []).includes(art);
+  if ((deletable?.local ?? []).includes(art)) {
+    return true;
+  }
+  return Object.values(deletable?.sources ?? {}).some((arten) => (arten ?? []).includes(art));
 }
 function eigenerBestandDerArt(art, totals) {
   return totals?.local?.[art] ?? 0;
+}
+function loeschbarerBestandDerArt(art, totals, deletable) {
+  let summe = (deletable?.local ?? []).includes(art) ? eigenerBestandDerArt(art, totals) : 0;
+  for (const [herkunft, arten] of Object.entries(deletable?.sources ?? {})) {
+    if ((arten ?? []).includes(art)) {
+      summe += totals?.sources?.[herkunft]?.[art] ?? 0;
+    }
+  }
+  return summe;
 }
 function loeschFrage(wort, bestand, angezeigt) {
   const zahl = bestand > 0 ? bestand : angezeigt;
@@ -310,17 +335,26 @@ function csrfHeaders() {
   return cookie ? { "X-XSRF-TOKEN": decodeURIComponent(cookie) } : {};
 }
 
+// resources/js/src/ereignis.ts
+var POSTEINGANG_GEAENDERT = "peppermint:posteingang-geaendert";
+function meldePosteingangGeaendert() {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.dispatchEvent(new CustomEvent(POSTEINGANG_GEAENDERT));
+}
+
 // resources/js/src/useAbhaken.ts
 function useAbhaken(options = {}) {
   const { href = "/posteingang/gelesen", onChanged } = options;
   const [abgehakt, setAbgehakt] = useState(() => /* @__PURE__ */ new Set());
-  const [alleEigenenAbgehakt, setAlleEigenenAbgehakt] = useState(false);
+  const [alleAbgehakt, setAlleAbgehakt] = useState(false);
   const [laeuft, setLaeuft] = useState(false);
   const [fehler, setFehler] = useState(null);
   const schreiben = useCallback(
     async (nutzlast) => {
       if (!href) {
-        return false;
+        return null;
       }
       setLaeuft(true);
       setFehler(null);
@@ -333,22 +367,37 @@ function useAbhaken(options = {}) {
             "X-Requested-With": "XMLHttpRequest",
             ...csrfHeaders()
           },
-          body: JSON.stringify(nutzlast)
+          body: JSON.stringify(nutzlast),
+          /*
+           * `keepalive` (pm #10227): Wer eine Zeile OEFFNET,
+           * verlaesst bei einer fremden Zeile die Seite. Ohne
+           * diese Angabe bricht der Browser die Anfrage mit dem
+           * Seitenwechsel ab — die Zeile stand beim Zurueckkommen
+           * wieder als ungelesen da, und die Zahl war dieselbe.
+           * Bastian: „Auch wenn ich in einem drin war und wieder
+           * zurueckgehe, bleibt trotzdem die Anzahl gleich."
+           */
+          keepalive: true
         });
         if (antwort.status === 419) {
           window.location.reload();
-          return false;
+          return null;
         }
         if (!antwort.ok) {
-          const daten = await antwort.json().catch(() => null);
-          setFehler(daten?.message ?? `Das Abhaken kam nicht an (${antwort.status}).`);
-          return false;
+          const daten2 = await antwort.json().catch(() => null);
+          setFehler(daten2?.message ?? `Das Abhaken kam nicht an (${antwort.status}).`);
+          return null;
+        }
+        const daten = await antwort.json().catch(() => null) ?? {};
+        if (Array.isArray(daten.failed) && daten.failed.length > 0) {
+          setFehler(`Nicht \xFCberall angekommen: ${daten.failed.join(", ")}`);
         }
         onChanged?.();
-        return true;
+        meldePosteingangGeaendert();
+        return daten;
       } catch (ursache) {
         setFehler(ursache instanceof Error ? ursache.message : "Das Abhaken kam nicht an.");
-        return false;
+        return null;
       } finally {
         setLaeuft(false);
       }
@@ -372,7 +421,7 @@ function useAbhaken(options = {}) {
         kind: erste.kind,
         ids: gleiche.map((z) => z.id)
       });
-      if (erfolg) {
+      if (erfolg !== null) {
         setAbgehakt((bisher) => {
           const neu = new Set(bisher);
           gleiche.forEach((z) => neu.add(zeilenSchluessel(z)));
@@ -386,18 +435,21 @@ function useAbhaken(options = {}) {
     },
     [schreiben]
   );
-  const alleEigenen = useCallback(async () => {
-    if (await schreiben({ alle: true })) {
-      setAlleEigenenAbgehakt(true);
+  const alle = useCallback(async () => {
+    const daten = await schreiben({ alle: true });
+    if (daten !== null && (daten.failed ?? []).length === 0) {
+      setAlleAbgehakt(true);
     }
   }, [schreiben]);
   return {
     abgehakt,
-    alleEigenenAbgehakt,
+    alleAbgehakt,
+    alleEigenenAbgehakt: alleAbgehakt,
     laeuft,
     fehler,
     abhaken,
-    alleEigenen
+    alle,
+    alleEigenen: alle
   };
 }
 
@@ -431,12 +483,20 @@ function useLoeschen(options = {}) {
           window.location.reload();
           return false;
         }
+        if (antwort.ok) {
+          const daten = await antwort.clone().json().catch(() => null);
+          const gescheitert = daten?.failed;
+          if (Array.isArray(gescheitert) && gescheitert.length > 0) {
+            setFehler(`Nicht \xFCberall gel\xF6scht: ${gescheitert.join(", ")}`);
+          }
+        }
         if (!antwort.ok) {
           const daten = await antwort.json().catch(() => null);
           setFehler(daten?.message ?? `Das L\xF6schen kam nicht an (${antwort.status}).`);
           return false;
         }
         onChanged?.();
+        meldePosteingangGeaendert();
         return true;
       } catch (ursache) {
         setFehler(ursache instanceof Error ? ursache.message : "Das L\xF6schen kam nicht an.");
@@ -456,9 +516,12 @@ function useLoeschen(options = {}) {
       if (!erste) {
         return;
       }
-      const gleiche = zeilen.filter((z) => z.kind === erste.kind && !z.source);
+      const gleiche = zeilen.filter(
+        (z) => z.kind === erste.kind && (z.source ?? null) === (erste.source ?? null)
+      );
       if (gleiche.length > 0) {
         const erfolg = await schreiben({
+          source: erste.source ?? null,
           kind: erste.kind,
           ids: gleiche.map((z) => z.id)
         });
@@ -526,12 +589,15 @@ function InboxPage({
   const [offen, setOffen] = useState3(initialKind ?? ersterMitInhalt);
   const zeilen = useMemo(
     () => items.filter(
-      (item) => !papierkorb.geloescht.has(zeilenSchluessel(item)) && !(papierkorb.geleerteArten.has(item.kind) && !item.source)
+      (item) => !papierkorb.geloescht.has(zeilenSchluessel(item)) && // Nach „alle der Art" faellt jede Zeile dieser Art
+      // weg, die geloescht werden konnte — seit v0.8.0
+      // auch die fremden (pm #10227).
+      !(papierkorb.geleerteArten.has(item.kind) && darfLoeschen(item, deletable))
     ).map((item) => ({
       ...item,
-      is_unread: nochUngelesen(item, haken.abgehakt, haken.alleEigenenAbgehakt, markable)
+      is_unread: nochUngelesen(item, haken.abgehakt, haken.alleAbgehakt, markable)
     })),
-    [items, haken.abgehakt, haken.alleEigenenAbgehakt, markable, papierkorb.geloescht, papierkorb.geleerteArten]
+    [items, haken.abgehakt, haken.alleAbgehakt, markable, deletable, papierkorb.geloescht, papierkorb.geleerteArten]
   );
   const zahlen = useMemo(() => {
     const angepasst = { ...counts };
@@ -568,11 +634,11 @@ function InboxPage({
   const neue = useMemo(() => sichtbar.filter((i) => i.is_unread), [sichtbar]);
   const frueher = useMemo(() => sichtbar.filter((i) => !i.is_unread), [sichtbar]);
   const gruppiert = neue.length > 0 && frueher.length > 0;
-  const eigeneOffen = haken.alleEigenenAbgehakt ? 0 : eigenerBestandAbhakbar(totals, markable);
+  const offenAbhakbar = haken.alleAbgehakt ? 0 : bestandAbhakbar(totals, markable);
   const satz = hinweisZurListe(derArt.length, bestandJeArt(totals)[offen] ?? 0);
   const offeneArt = kinds.find((k) => k.key === offen);
   const darfArtLeeren = deleteHref !== null && artLoeschbar(offen, deletable) && !papierkorb.geleerteArten.has(offen);
-  const bestandDerArt = eigenerBestandDerArt(offen, totals);
+  const bestandDerArt = loeschbarerBestandDerArt(offen, totals, deletable);
   const wortDerArt = offeneArt?.label ?? "Eintr\xE4ge";
   const oeffnenMitHaken = (eintrag) => {
     if (readHref !== null && darfAbhaken(eintrag, markable)) {
@@ -627,24 +693,24 @@ function InboxPage({
         /* @__PURE__ */ jsx3("p", { className: "text-sm text-muted-foreground", children: subtitle })
       ] }),
       /* @__PURE__ */ jsxs2("div", { className: "flex shrink-0 flex-wrap items-center gap-2", children: [
-        readHref !== null && eigeneOffen > 0 && /* @__PURE__ */ jsxs2(
+        readHref !== null && offenAbhakbar > 0 && /* @__PURE__ */ jsxs2(
           "button",
           {
             type: "button",
             disabled: haken.laeuft,
-            onClick: () => void haken.alleEigenen(),
+            onClick: () => void haken.alle(),
             className: "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:opacity-60",
             children: [
               /* @__PURE__ */ jsx3(CheckCheck, { className: "h-4 w-4" }),
               /* @__PURE__ */ jsxs2("span", { children: [
                 "Alle ",
-                eigeneOffen,
-                " eigenen als gelesen"
+                offenAbhakbar,
+                " als gelesen"
               ] })
             ]
           }
         ),
-        darfArtLeeren && derArt.some((i) => !i.source) && /* @__PURE__ */ jsxs2(
+        darfArtLeeren && derArt.some((i) => darfLoeschen(i, deletable)) && /* @__PURE__ */ jsxs2(
           "button",
           {
             type: "button",
@@ -654,7 +720,7 @@ function InboxPage({
                 const frage = loeschFrage(
                   wortDerArt,
                   bestandDerArt,
-                  derArt.filter((i) => !i.source).length
+                  derArt.filter((i) => darfLoeschen(i, deletable)).length
                 );
                 if (await fragen(frage)) {
                   await papierkorb.alleDerArt(offen);
@@ -833,9 +899,11 @@ function InboxPage({
 export {
   InboxList,
   InboxPage,
+  POSTEINGANG_GEAENDERT,
   artLoeschbar,
   bekannteFarben,
   bekannteSymbole,
+  bestandAbhakbar,
   bestandJeArt,
   csrfHeaders,
   darfAbhaken,
@@ -848,6 +916,8 @@ export {
   inboxTextClass,
   istEigenAbhakbar,
   loeschFrage,
+  loeschbarerBestandDerArt,
+  meldePosteingangGeaendert,
   nochUngelesen,
   useAbhaken,
   useLoeschen,

@@ -29,7 +29,7 @@ class FremdeEintraege
     public function __construct(private readonly RemoteSource $quelle) {}
 
     /**
-     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, array<string, mixed>>, unreachable: array<int, string>, failed: array<int, string>, totals: array<string, array<string, int>>, markable: array<string, array<int, string>>}
+     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, array<string, mixed>>, unreachable: array<int, string>, failed: array<int, string>, totals: array<string, array<string, int>>, markable: array<string, array<int, string>>, deletable: array<string, array<int, string>>}
      */
     public function holen(string $adresse, int $grenze = 50): array
     {
@@ -39,6 +39,7 @@ class FremdeEintraege
         $gescheitert = [];
         $bestand = [];
         $abhakbar = [];
+        $loeschbar = [];
 
         foreach ($this->quelle->anbieter() as $anbieter) {
             $schluessel = (string) ($anbieter['key'] ?? $anbieter['slug'] ?? '');
@@ -122,6 +123,7 @@ class FremdeEintraege
             // ueber alle wuerde genau diese Frage nicht mehr beantworten.
             $bestand[$schluessel] = $antwort['totals'] ?? [];
             $abhakbar[$schluessel] = $antwort['markable'] ?? [];
+            $loeschbar[$schluessel] = $antwort['deletable'] ?? [];
         }
 
         return [
@@ -131,6 +133,7 @@ class FremdeEintraege
             'failed' => $gescheitert,
             'totals' => $bestand,
             'markable' => $abhakbar,
+            'deletable' => $loeschbar,
         ];
     }
 }

@@ -69,6 +69,7 @@ class ListInboxEntriesTool extends Tool
                 'failed' => [],
                 'totals' => [],
                 'markable' => [],
+                'deletable' => [],
             ]);
         }
 
@@ -113,6 +114,10 @@ class ListInboxEntriesTool extends Tool
              * das System, dem sie gehoert.
              */
             'markable' => $gesammelt['markable'],
+            // Welche Arten das aufrufende System hier loeschen darf
+            // (`delete-inbox-entries-tool`, pm #10227). Fehlt es in einer
+            // aelteren Antwort, zeichnet die Gegenseite keinen Muelleimer.
+            'deletable' => $gesammelt['deletable'],
             // KEIN Deckel ueber die Gesamtliste. Jede Quelle hat `$grenze`
             // bereits fuer SICH angewandt; ein zweiter Schnitt hier kappt
             // nach Anmelde-Reihenfolge statt nach Inhalt.

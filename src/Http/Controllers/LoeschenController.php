@@ -4,8 +4,7 @@ namespace Peppermint\Inbox\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Peppermint\Inbox\Quellen\LoeschbareQuelle;
-use Peppermint\Inbox\Quellen\Quellenverzeichnis;
+use Peppermint\Inbox\Feed\Loeschen;
 use Throwable;
 
 /**
@@ -18,14 +17,14 @@ use Throwable;
  * Autorisierung — `middleware` kommt aus der Konfiguration, und wer die
  * Seite nicht sehen darf, kommt auch hier nicht durch.
  *
- * ## Nur die EIGENEN Zeilen
+ * ## Auch fremde Zeilen (seit v0.8.0, pm #10227)
  *
- * Anders als beim Abhaken gibt es hier keinen Weg ueber die Systemgrenze
- * und deshalb auch kein `source`-Feld. Die Begruendung steht in
- * {@see LoeschbareQuelle}. Kommt eine fremde
- * Zeile trotzdem an, faellt sie in {@see Quellenverzeichnis::loeschen()}
- * durch den Rechte-Filter der Quelle — die fragt nach der handelnden
- * Person, und eine fremde Kennung trifft dort nichts.
+ * Bis v0.8.0 stand hier „nur die EIGENEN Zeilen, kein `source`-Feld". Seit
+ * Bastian im Manager 1320 AI-Brain-Zeilen vor sich hatte und keine davon
+ * wegmachen konnte, geht eine Zeile mit Herkunft ueber {@see Loeschen}
+ * dorthin, wo sie liegt — und nur, wenn das System die Art selbst als
+ * loeschbar meldet. Drueben prueft die Quelle die handelnde Person; eine
+ * fremde Kennung trifft dort nichts.
  *
  * ## `kind` ist Pflicht, auch bei „alle"
  *
@@ -42,7 +41,7 @@ use Throwable;
  */
 class LoeschenController
 {
-    public function __invoke(Request $request, Quellenverzeichnis $quellen): JsonResponse
+    public function __invoke(Request $request, Loeschen $loeschen): JsonResponse
     {
         $person = $request->user();
 
@@ -59,15 +58,19 @@ class LoeschenController
             // je Aufruf wuerde sie kappen — der Knopf haette dann einen
             // Teil erledigt und „alle" gesagt.
             'alle' => ['sometimes', 'boolean'],
+            // Herkunft seit v0.8.0 (pm #10227): `null` heisst „von hier".
+            'source' => ['nullable', 'string', 'max:120'],
             'kind' => ['required', 'string', 'max:120'],
             'ids' => ['required_without:alle', 'array', 'max:200'],
             'ids.*' => ['required', 'string', 'max:190'],
         ]);
 
         try {
-            $geloescht = ($daten['alle'] ?? false)
-                ? $quellen->allesLoeschen($person, (string) $daten['kind'])
-                : $quellen->loeschen($person, (string) $daten['kind'], $daten['ids']);
+            if ($daten['alle'] ?? false) {
+                return response()->json($loeschen->alleDerArt($person, (string) $daten['kind']));
+            }
+
+            $geloescht = $loeschen->zeilen($person, $daten['source'] ?? null, (string) $daten['kind'], $daten['ids']);
         } catch (Throwable $fehler) {
             return response()->json(['message' => $fehler->getMessage()], 502);
         }

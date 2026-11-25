@@ -13,10 +13,10 @@ import type { InboxDeletable, InboxItem, InboxTotals } from './types';
  *
  * Zwei Bedingungen, beide mit Grund:
  *
- * - **Sie ist von hier.** Löschen geht bewusst nicht über die
- *   Systemgrenze — die Begründung steht in `LoeschbareQuelle`. Eine fremde
- *   Zeile hat deshalb keinen Löschknopf, und das ist kein Mangel, sondern
- *   die Aussage: Was dort liegt, wird dort gelöscht.
+ * - **Ihr System kann es.** Bis v0.8.0 hiess das „sie ist von hier":
+ *   Löschen ging nicht über die Systemgrenze. Seit pm #10227 meldet jedes
+ *   System in `deletable.sources`, was bei ihm löschbar ist, und der Klick
+ *   geht dorthin, wo die Zeile liegt.
  * - **Die Art erlaubt es.** Nur wo eine löschbare Quelle steht, findet der
  *   Klick ein Ziel. Eine Aufgabe oder einen Beleg „aus dem Posteingang zu
  *   löschen" wäre wirkungslos oder ein Datenverlust im Fremdsystem.
@@ -30,11 +30,17 @@ import type { InboxDeletable, InboxItem, InboxTotals } from './types';
  * schlechter als keiner.
  */
 export function darfLoeschen(item: InboxItem, deletable?: InboxDeletable): boolean {
-    if (item.source || !deletable) {
+    if (!deletable) {
         return false;
     }
 
-    return (deletable.local ?? []).includes(item.kind);
+    // Seit v0.8.0 (pm #10227) auch eine fremde Zeile — aber nur, wenn ihr
+    // System die Art selbst als loeschbar meldet. Bis dahin stand hier
+    // `if (item.source) return false`, und bei Bastian liess sich so der
+    // groesste Teil seines Posteingangs nicht wegmachen.
+    const arten = item.source ? (deletable.sources?.[item.source] ?? []) : (deletable.local ?? []);
+
+    return arten.includes(item.kind);
 }
 
 /**
@@ -44,7 +50,11 @@ export function darfLoeschen(item: InboxItem, deletable?: InboxDeletable): boole
  * und nur dort, wo die Art es erlaubt.
  */
 export function artLoeschbar(art: string, deletable?: InboxDeletable): boolean {
-    return (deletable?.local ?? []).includes(art);
+    if ((deletable?.local ?? []).includes(art)) {
+        return true;
+    }
+
+    return Object.values(deletable?.sources ?? {}).some((arten) => (arten ?? []).includes(art));
 }
 
 /**
@@ -60,6 +70,23 @@ export function artLoeschbar(art: string, deletable?: InboxDeletable): boolean {
  */
 export function eigenerBestandDerArt(art: string, totals?: InboxTotals): number {
     return totals?.local?.[art] ?? 0;
+}
+
+/**
+ * Was „Alle … loeschen" trifft: der eigene Bestand der Art plus der jedes
+ * Systems, das die Art loeschbar meldet (pm #10227). Fuer die Zahl in der
+ * Rueckfrage — sie soll sagen, was wirklich verschwindet.
+ */
+export function loeschbarerBestandDerArt(art: string, totals?: InboxTotals, deletable?: InboxDeletable): number {
+    let summe = (deletable?.local ?? []).includes(art) ? eigenerBestandDerArt(art, totals) : 0;
+
+    for (const [herkunft, arten] of Object.entries(deletable?.sources ?? {})) {
+        if ((arten ?? []).includes(art)) {
+            summe += totals?.sources?.[herkunft]?.[art] ?? 0;
+        }
+    }
+
+    return summe;
 }
 
 /**

@@ -68,14 +68,16 @@ export function istEigenAbhakbar(item: InboxItem, markable?: InboxMarkable): boo
 export function nochUngelesen(
     item: InboxItem,
     abgehakt: Set<string>,
-    alleEigenenAbgehakt: boolean,
+    alleAbgehakt: boolean,
     markable?: InboxMarkable,
 ): boolean {
     if (!item.is_unread || abgehakt.has(zeilenSchluessel(item))) {
         return false;
     }
 
-    return !(alleEigenenAbgehakt && istEigenAbhakbar(item, markable));
+    // Seit v0.8.0 (pm #10227) nimmt „alle" auch die fremden Zeilen mit —
+    // jede, die einen Haken bekaeme. Bis dahin nur die eigenen.
+    return !(alleAbgehakt && darfAbhaken(item, markable));
 }
 
 /**
@@ -136,6 +138,31 @@ export function eigenerBestandAbhakbar(totals?: InboxTotals, markable?: InboxMar
  * `null`, wenn beides zusammenpasst: Ein Hinweis, der immer steht, wird
  * nicht gelesen. Er soll nur da sein, wenn er etwas erklärt.
  */
+/**
+ * Was „Alle als gelesen" trifft: der abhakbare Bestand hier UND in jedem
+ * System, das Zeilen zeigt und sie abhaken kann (pm #10227).
+ *
+ * Diese Zahl steht auf dem Knopf. Bis v0.8.0 stand dort der eigene Teil
+ * allein — bei Bastian „Alle 1 eigenen als gelesen" neben einem Abzeichen
+ * mit 1461. Nach dem Klick stand 1460 da, und es sah aus, als sei nichts
+ * passiert.
+ */
+export function bestandAbhakbar(totals?: InboxTotals, markable?: InboxMarkable): number {
+    if (!totals || !markable) {
+        return 0;
+    }
+
+    let summe = eigenerBestandAbhakbar(totals, markable);
+
+    for (const [herkunft, arten] of Object.entries(markable.sources ?? {})) {
+        for (const art of arten ?? []) {
+            summe += totals.sources?.[herkunft]?.[art] ?? 0;
+        }
+    }
+
+    return summe;
+}
+
 export function hinweisZurListe(angezeigt: number, bestand: number): string | null {
     if (bestand <= angezeigt) {
         return null;

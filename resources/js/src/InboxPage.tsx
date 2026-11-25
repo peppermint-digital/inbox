@@ -7,12 +7,12 @@ import { cn } from './ui/utils';
 import {
     bestandJeArt,
     darfAbhaken,
-    eigenerBestandAbhakbar,
+    bestandAbhakbar,
     hinweisZurListe,
     nochUngelesen,
     zeilenSchluessel,
 } from './abhaken';
-import { artLoeschbar, darfLoeschen, eigenerBestandDerArt, loeschFrage } from './loeschen';
+import { artLoeschbar, darfLoeschen, loeschbarerBestandDerArt, loeschFrage } from './loeschen';
 import { useAbhaken } from './useAbhaken';
 import { useLoeschen } from './useLoeschen';
 import type { InboxData, InboxItem } from './types';
@@ -201,13 +201,16 @@ export function InboxPage({
                 .filter(
                     (item) =>
                         !papierkorb.geloescht.has(zeilenSchluessel(item)) &&
-                        !(papierkorb.geleerteArten.has(item.kind) && !item.source),
+                        // Nach „alle der Art" faellt jede Zeile dieser Art
+                        // weg, die geloescht werden konnte — seit v0.8.0
+                        // auch die fremden (pm #10227).
+                        !(papierkorb.geleerteArten.has(item.kind) && darfLoeschen(item, deletable)),
                 )
                 .map((item) => ({
                     ...item,
-                    is_unread: nochUngelesen(item, haken.abgehakt, haken.alleEigenenAbgehakt, markable),
+                    is_unread: nochUngelesen(item, haken.abgehakt, haken.alleAbgehakt, markable),
                 })),
-        [items, haken.abgehakt, haken.alleEigenenAbgehakt, markable, papierkorb.geloescht, papierkorb.geleerteArten],
+        [items, haken.abgehakt, haken.alleAbgehakt, markable, deletable, papierkorb.geloescht, papierkorb.geleerteArten],
     );
 
     // Die Zahlen an den Reitern kommen vom Server (sie zaehlen die Liste)
@@ -289,10 +292,11 @@ export function InboxPage({
     const frueher = useMemo(() => sichtbar.filter((i) => !i.is_unread), [sichtbar]);
     const gruppiert = neue.length > 0 && frueher.length > 0;
 
-    // „Alle eigenen" nennt seine Zahl. Ein Knopf, der „alle" verspricht
-    // und einen Teil erledigt, ist schlimmer als einer, der sagt, wie
-    // viele er nimmt — was in einem anderen System liegt, bleibt dort.
-    const eigeneOffen = haken.alleEigenenAbgehakt ? 0 : eigenerBestandAbhakbar(totals, markable);
+    // „Alle" nennt seine Zahl, und seit v0.8.0 (pm #10227) ist es die
+    // ganze: hier UND in jedem System, das abhaken kann. Bis dahin stand
+    // „Alle 1 eigenen" neben einem Abzeichen mit 1461 — der Klick aenderte
+    // eine Zeile, und es sah aus, als passiere nichts.
+    const offenAbhakbar = haken.alleAbgehakt ? 0 : bestandAbhakbar(totals, markable);
 
     // Der Satz unter der Liste, und zwar fuer die Art, die offen ist:
     // Die Liste zeigt die neuesten, der Bestand kann weit darueber liegen.
@@ -310,7 +314,7 @@ export function InboxPage({
      */
     const offeneArt = kinds.find((k) => k.key === offen);
     const darfArtLeeren = deleteHref !== null && artLoeschbar(offen, deletable) && !papierkorb.geleerteArten.has(offen);
-    const bestandDerArt = eigenerBestandDerArt(offen, totals);
+    const bestandDerArt = loeschbarerBestandDerArt(offen, totals, deletable);
     const wortDerArt = offeneArt?.label ?? 'Einträge';
 
     /*
@@ -418,15 +422,15 @@ export function InboxPage({
                 </div>
 
                 <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    {readHref !== null && eigeneOffen > 0 && (
+                    {readHref !== null && offenAbhakbar > 0 && (
                         <button
                             type="button"
                             disabled={haken.laeuft}
-                            onClick={() => void haken.alleEigenen()}
+                            onClick={() => void haken.alle()}
                             className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:opacity-60"
                         >
                             <CheckCheck className="h-4 w-4" />
-                            <span>Alle {eigeneOffen} eigenen als gelesen</span>
+                            <span>Alle {offenAbhakbar} als gelesen</span>
                         </button>
                     )}
 
@@ -438,7 +442,7 @@ export function InboxPage({
                         ist: Ein Knopf, der nichts zu loeschen hat, ist
                         eine Einladung ohne Inhalt.
                     */}
-                    {darfArtLeeren && derArt.some((i) => !i.source) && (
+                    {darfArtLeeren && derArt.some((i) => darfLoeschen(i, deletable)) && (
                         <button
                             type="button"
                             disabled={papierkorb.laeuft}
@@ -457,7 +461,7 @@ export function InboxPage({
                                     const frage = loeschFrage(
                                         wortDerArt,
                                         bestandDerArt,
-                                        derArt.filter((i) => !i.source).length,
+                                        derArt.filter((i) => darfLoeschen(i, deletable)).length,
                                     );
 
                                     if (await fragen(frage)) {

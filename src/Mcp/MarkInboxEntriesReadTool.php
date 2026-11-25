@@ -46,7 +46,7 @@ class MarkInboxEntriesReadTool extends Tool
 {
     use FindetHandelndePerson;
 
-    protected string $description = 'Mark inbox entries of the acting person in this system as read. Takes the kind and the ids of the rows, as reported by list-inbox-entries-tool. Only the acting person\'s own entries; nothing else can be addressed.';
+    protected string $description = 'Mark inbox entries of the acting person in this system as read. Either the kind and the ids of the rows, as reported by list-inbox-entries-tool, or all=true for every unread entry of the person (optionally only of one kind). Only the acting person\'s own entries; nothing else can be addressed.';
 
     public function handle(Request $request, Quellenverzeichnis $quellen): Response
     {
@@ -58,8 +58,31 @@ class MarkInboxEntriesReadTool extends Tool
 
         $art = trim((string) ($request->get('kind') ?? ''));
 
+        /*
+         * `all` (pm #10227): Ohne das musste ein anderes System jede
+         * Kennung einzeln schicken — hoechstens 200 je Aufruf, und es kannte
+         * ohnehin nur die 50, die es angezeigt hatte. „Alle als gelesen" im
+         * Manager liess so 1320 AI-Brain-Zeilen stehen.
+         *
+         * Auch hier nur die handelnde Person: `all` heisst „alle MEINE",
+         * es gibt keinen Parameter fuer jemand anderen.
+         */
+        if (filter_var($request->get('all'), FILTER_VALIDATE_BOOLEAN)) {
+            try {
+                $geaendert = $quellen->allesAlsGelesen($person, $art === '' ? null : $art);
+            } catch (\Throwable $fehler) {
+                return Response::error($fehler->getMessage());
+            }
+
+            return Response::json([
+                'marked' => $geaendert,
+                'kind' => $art === '' ? null : $art,
+                'all' => true,
+            ]);
+        }
+
         if ($art === '') {
-            return Response::error('Missing "kind": which kind do the ids belong to? Ids are only unique within a kind.');
+            return Response::error('Missing "kind": which kind do the ids belong to? Ids are only unique within a kind. Or pass all=true.');
         }
 
         $ids = array_values(array_filter(
@@ -68,7 +91,7 @@ class MarkInboxEntriesReadTool extends Tool
         ));
 
         if ($ids === []) {
-            return Response::error('Missing "ids": which entries should be marked read?');
+            return Response::error('Missing "ids": which entries should be marked read? Or pass all=true.');
         }
 
         try {
@@ -80,12 +103,12 @@ class MarkInboxEntriesReadTool extends Tool
             return Response::error($fehler->getMessage());
         }
 
+        // Die Zahl der TATSAECHLICH geaenderten Zeilen, nicht die der
+        // uebergebenen Kennungen. Hinter einer Zeile stecken oft
+        // mehrere Datensaetze, und eine veraltete Kennung darf
+        // mitfahren, ohne den Aufruf zu sprengen — wer genau hinsehen
+        // will, vergleicht die beiden Zahlen.
         return Response::json([
-            // Die Zahl der TATSAECHLICH geaenderten Zeilen, nicht die der
-            // uebergebenen Kennungen. Hinter einer Zeile stecken oft
-            // mehrere Datensaetze, und eine veraltete Kennung darf
-            // mitfahren, ohne den Aufruf zu sprengen — wer genau hinsehen
-            // will, vergleicht die beiden Zahlen.
             'marked' => $geaendert,
             'kind' => $art,
         ]);
@@ -94,12 +117,14 @@ class MarkInboxEntriesReadTool extends Tool
     public function schema(JsonSchema $schema): array
     {
         return [
+            // Nicht mehr `required` (pm #10227): Mit `all` gibt es keine
+            // Kennungen. Die Pflicht prueft `handle()` und sagt, was fehlt.
             'kind' => $schema->string()
-                ->description('The kind the ids belong to, as reported by list-inbox-entries-tool. Ids are only unique within a kind.')
-                ->required(),
+                ->description('The kind the ids belong to, as reported by list-inbox-entries-tool. Ids are only unique within a kind. With all=true: limit to this kind.'),
             'ids' => $schema->array()
-                ->description(sprintf('The entry ids to mark read. At most %d per call.', Abhaken::MAX_IDS))
-                ->required(),
+                ->description(sprintf('The entry ids to mark read. At most %d per call.', Abhaken::MAX_IDS)),
+            'all' => $schema->boolean()
+                ->description('Mark every unread entry of the acting person as read (optionally only of "kind"). No ids needed.'),
         ];
     }
 }

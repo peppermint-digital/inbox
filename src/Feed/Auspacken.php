@@ -61,7 +61,7 @@ final class Auspacken
 
     /**
      * @param  array<string, mixed>  $antwort
-     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, array<string, mixed>>, failed: array<int, string>, totals: array<string, int>, markable: array<int, string>}
+     * @return array{items: array<int, array<string, mixed>>, kinds: array<int, array<string, mixed>>, failed: array<int, string>, totals: array<string, int>, markable: array<int, string>, deletable: array<int, string>}
      */
     public static function antwort(array $antwort): array
     {
@@ -84,6 +84,10 @@ final class Auspacken
             // wenig versprochen, nichts behauptet.
             'totals' => self::zahlen($huelle['totals'] ?? []),
             'markable' => Huelle::woerter($huelle, 'markable'),
+            // Loeschbar ab v0.8.0 (pm #10227). Fehlt es, gibt es fuer
+            // dieses System keinen Muelleimer — dieselbe vorsichtige
+            // Richtung wie beim Haken.
+            'deletable' => Huelle::woerter($huelle, 'deletable'),
         ];
     }
 
@@ -111,6 +115,31 @@ final class Auspacken
      */
     public static function abgehakt(array $antwort): int
     {
+        return self::zahl($antwort, 'marked')
+            ?? throw new RuntimeException('Die Antwort auf das Abhaken nennt keine Zahl — kam es an?');
+    }
+
+    /**
+     * Wie viele Zeilen `delete-inbox-entries-tool` geloescht hat (pm #10227).
+     *
+     * Dieselbe Strenge wie {@see abgehakt()}: Eine Antwort ohne Zahl ist
+     * ein Fehler, keine Null.
+     *
+     * @param  array<string, mixed>  $antwort
+     *
+     * @throws RuntimeException wenn die Antwort keine Zahl enthaelt.
+     */
+    public static function geloescht(array $antwort): int
+    {
+        return self::zahl($antwort, 'deleted')
+            ?? throw new RuntimeException('Die Antwort auf das Loeschen nennt keine Zahl — kam es an?');
+    }
+
+    /**
+     * @param  array<string, mixed>  $antwort
+     */
+    private static function zahl(array $antwort, string $schluessel): ?int
+    {
         $kandidaten = [
             $antwort,
             $antwort['data'] ?? null,
@@ -121,11 +150,11 @@ final class Auspacken
         ];
 
         foreach ($kandidaten as $kandidat) {
-            if (is_array($kandidat) && is_numeric($kandidat['marked'] ?? null)) {
-                return (int) $kandidat['marked'];
+            if (is_array($kandidat) && is_numeric($kandidat[$schluessel] ?? null)) {
+                return (int) $kandidat[$schluessel];
             }
         }
 
-        throw new RuntimeException('Die Antwort auf das Abhaken nennt keine Zahl — kam es an?');
+        return null;
     }
 }

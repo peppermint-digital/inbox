@@ -324,7 +324,7 @@ describe('Der Haken an einer Zeile (#1096)', () => {
     });
 });
 
-describe('„Alle eigenen als gelesen"', () => {
+describe('„Alle als gelesen"', () => {
     const markable = { local: ['aufgabe'], sources: {} };
     const totals = {
         local: { aufgabe: 3953 },
@@ -336,18 +336,33 @@ describe('„Alle eigenen als gelesen"', () => {
     });
 
     it('nennt die Zahl, die er wirklich nimmt', () => {
-        // 3953, nicht 3993: Die 40 im CRM bleiben dort liegen. Ein Knopf,
-        // der „alle" verspricht und einen Teil erledigt, ist schlimmer als
-        // einer, der sagt, wie viele er nimmt.
+        // 3953, nicht 3993: Das CRM meldet hier nichts abhakbar, seine 40
+        // bleiben dort liegen. Ein Knopf, der „alle" verspricht und einen
+        // Teil erledigt, ist schlimmer als einer, der sagt, wie viele er
+        // nimmt.
         render(<InboxPage {...daten({ totals, markable })} {...basis} />);
 
-        expect(screen.getByRole('button', { name: /Alle 3953 eigenen als gelesen/ })).toBeDefined();
+        expect(screen.getByRole('button', { name: /Alle 3953 als gelesen/ })).toBeDefined();
     });
 
-    it('bleibt weg, wenn hier nichts ungelesen ist', () => {
+    it('zaehlt die fremden mit, die abgehakt werden koennen (pm #10227)', () => {
+        // Bastian: Abzeichen 1461, Knopf „Alle 1 eigenen als gelesen". Seit
+        // v0.8.0 nimmt der Knopf jedes System, das `inbox.read` meldet —
+        // und sagt die Summe.
+        render(
+            <InboxPage
+                {...daten({ totals, markable: { local: ['aufgabe'], sources: { 'peppermint-crm': ['aufgabe'] } } })}
+                {...basis}
+            />,
+        );
+
+        expect(screen.getByRole('button', { name: /Alle 3993 als gelesen/ })).toBeDefined();
+    });
+
+    it('bleibt weg, wenn nirgends etwas abhakbar ungelesen ist', () => {
         render(<InboxPage {...daten({ totals: { local: {}, sources: {} }, markable })} {...basis} />);
 
-        expect(screen.queryByText(/eigenen als gelesen/)).toBeNull();
+        expect(screen.queryByText(/als gelesen$/)).toBeNull();
     });
 
     it('schickt „alle" und nicht eine Liste von Kennungen', async () => {
@@ -367,7 +382,7 @@ describe('„Alle eigenen als gelesen"', () => {
 
         render(<InboxPage {...daten({ totals, markable })} {...basis} />);
 
-        fireEvent.click(screen.getByRole('button', { name: /Alle 3953 eigenen als gelesen/ }));
+        fireEvent.click(screen.getByRole('button', { name: /Alle 3953 als gelesen/ }));
 
         await vi.waitFor(() => expect(aufrufe).toEqual([{ alle: true }]));
 
@@ -376,7 +391,7 @@ describe('„Alle eigenen als gelesen"', () => {
         // Auch das in `waitFor`: Die Nutzlast liegt schon vor, wenn React
         // den Zustand noch nicht uebernommen hat. Die erste Fassung dieser
         // Pruefung war genau deshalb rot — nicht weil der Knopf blieb.
-        await vi.waitFor(() => expect(screen.queryByText(/eigenen als gelesen/)).toBeNull());
+        await vi.waitFor(() => expect(screen.queryByText(/^Alle \d+ als gelesen$/)).toBeNull());
     });
 });
 
@@ -813,5 +828,109 @@ describe('Filter und Gruppierung (AI Brain #9069)', () => {
         fireEvent.click(screen.getByLabelText('Neu laden'));
 
         expect(laden).toHaveBeenCalled();
+    });
+});
+
+describe('Fremde Zeilen: gelesen und wegmachen (pm #10227)', () => {
+    /*
+     * Bastian, 25.11.2026: „wenn ich sie als gelesen markiere, passiert
+     * nichts. [...] Auch wenn ich in einem drin war und wieder zurückgehe,
+     * bleibt trotzdem die Anzahl gleich. Und ich habe auch keine Buttons,
+     * um praktisch die wegzumachen."
+     */
+    const hubZeile = zeile({ id: 'n-1', kind: 'meldung', title: 'Freigabe noetig', source: 'ai-brain', link: 'https://brain.example/x' });
+    const hubDaten = daten({
+        items: [hubZeile],
+        counts: { meldung: 1 },
+        totals: { local: {}, sources: { 'ai-brain': { meldung: 855 } } },
+        markable: { local: [], sources: { 'ai-brain': ['meldung'] } },
+        deletable: { local: [], sources: { 'ai-brain': ['meldung'] } },
+        labels: { local: 'Peppermint Manager', sources: { 'ai-brain': 'AI Brain' } },
+    });
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    function netz(antwort: Record<string, unknown> = { marked: 1 }) {
+        const aufrufe: Array<{ url: string; methode: string; koerper: unknown; keepalive: boolean | undefined }> = [];
+
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (url: string, init: RequestInit) => {
+                aufrufe.push({ url, methode: String(init.method), koerper: JSON.parse(String(init.body)), keepalive: init.keepalive });
+
+                const json = async () => antwort;
+
+                return { ok: true, status: 200, json, clone: () => ({ json }) };
+            }),
+        );
+
+        return aufrufe;
+    }
+
+    it('zeigt an einer fremden Zeile einen Muelleimer und schickt die Herkunft mit', async () => {
+        const aufrufe = netz({ deleted: 1 });
+
+        render(<InboxPage {...hubDaten} {...basis} />);
+
+        fireEvent.click(screen.getByRole('button', { name: 'Löschen' }));
+
+        await vi.waitFor(() =>
+            expect(aufrufe).toEqual([
+                { url: '/posteingang/zeilen', methode: 'DELETE', koerper: { source: 'ai-brain', kind: 'meldung', ids: ['n-1'] }, keepalive: undefined },
+            ]),
+        );
+        await vi.waitFor(() => expect(screen.queryByText('Freigabe noetig')).toBeNull());
+    });
+
+    it('zeigt keinen Muelleimer, wenn das System nichts loeschbar meldet', () => {
+        render(<InboxPage {...hubDaten} deletable={{ local: [] }} {...basis} />);
+
+        expect(screen.queryByRole('button', { name: 'Löschen' })).toBeNull();
+    });
+
+    it('schickt das Abhaken beim Oeffnen mit keepalive — der Seitenwechsel bricht es sonst ab', async () => {
+        const aufrufe = netz();
+        const oeffnen = vi.fn();
+
+        render(<InboxPage {...hubDaten} {...basis} onOpen={oeffnen} />);
+
+        fireEvent.click(screen.getByText('Freigabe noetig'));
+
+        expect(oeffnen).toHaveBeenCalledTimes(1);
+        await vi.waitFor(() =>
+            expect(aufrufe[0]).toEqual({
+                url: '/posteingang/gelesen',
+                methode: 'POST',
+                koerper: { source: 'ai-brain', kind: 'meldung', ids: ['n-1'] },
+                keepalive: true,
+            }),
+        );
+    });
+
+    it('meldet nach dem Abhaken der Kopfzeile, dass sie neu zaehlen soll', async () => {
+        netz();
+        const gehoert = vi.fn();
+        window.addEventListener('peppermint:posteingang-geaendert', gehoert);
+
+        render(<InboxPage {...hubDaten} {...basis} />);
+
+        fireEvent.click(screen.getByRole('button', { name: 'Als gelesen markieren' }));
+
+        await vi.waitFor(() => expect(gehoert).toHaveBeenCalledTimes(1));
+        window.removeEventListener('peppermint:posteingang-geaendert', gehoert);
+    });
+
+    it('sagt, welches System „alle" nicht angenommen hat', async () => {
+        netz({ marked: 0, failed: ['ai-brain'] });
+
+        render(<InboxPage {...hubDaten} {...basis} />);
+
+        fireEvent.click(screen.getByRole('button', { name: /Alle 855 als gelesen/ }));
+
+        await vi.waitFor(() => expect(screen.getByText(/Nicht überall angekommen: ai-brain/)).toBeDefined());
+        // Und die Zeile gilt NICHT als gelesen — drueben ist sie es nicht.
+        expect(screen.getByRole('button', { name: /Alle 855 als gelesen/ })).toBeDefined();
     });
 });

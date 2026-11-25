@@ -79,6 +79,12 @@ export interface InboxMarkable {
 export interface InboxDeletable {
     /** Arten, die HIER geloescht werden koennen. */
     local: string[];
+    /**
+     * Je Herkunft die Arten, die DORT geloescht werden koennen (seit
+     * v0.8.0, pm #10227). Fehlt bei einem System auf aelterem Stand —
+     * dann bekommen seine Zeilen keinen Muelleimer.
+     */
+    sources?: Record<string, string[]>;
 }
 
 /** Was der Server fuer die Seite liefert. */

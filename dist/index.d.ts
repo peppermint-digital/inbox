@@ -79,6 +79,12 @@ interface InboxMarkable {
 interface InboxDeletable {
     /** Arten, die HIER geloescht werden koennen. */
     local: string[];
+    /**
+     * Je Herkunft die Arten, die DORT geloescht werden koennen (seit
+     * v0.8.0, pm #10227). Fehlt bei einem System auf aelterem Stand —
+     * dann bekommen seine Zeilen keinen Muelleimer.
+     */
+    sources?: Record<string, string[]>;
 }
 /** Was der Server fuer die Seite liefert. */
 interface InboxData {
@@ -318,7 +324,7 @@ declare function istEigenAbhakbar(item: InboxItem, markable?: InboxMarkable): bo
  * bleibt, während der Zähler schon sinkt, ist genau das Bild, das #1096
  * ausgelöst hat.
  */
-declare function nochUngelesen(item: InboxItem, abgehakt: Set<string>, alleEigenenAbgehakt: boolean, markable?: InboxMarkable): boolean;
+declare function nochUngelesen(item: InboxItem, abgehakt: Set<string>, alleAbgehakt: boolean, markable?: InboxMarkable): boolean;
 /**
  * Der Bestand je Art, über alle Systeme zusammen.
  *
@@ -355,6 +361,16 @@ declare function eigenerBestandAbhakbar(totals?: InboxTotals, markable?: InboxMa
  * `null`, wenn beides zusammenpasst: Ein Hinweis, der immer steht, wird
  * nicht gelesen. Er soll nur da sein, wenn er etwas erklärt.
  */
+/**
+ * Was „Alle als gelesen" trifft: der abhakbare Bestand hier UND in jedem
+ * System, das Zeilen zeigt und sie abhaken kann (pm #10227).
+ *
+ * Diese Zahl steht auf dem Knopf. Bis v0.8.0 stand dort der eigene Teil
+ * allein — bei Bastian „Alle 1 eigenen als gelesen" neben einem Abzeichen
+ * mit 1461. Nach dem Klick stand 1460 da, und es sah aus, als sei nichts
+ * passiert.
+ */
+declare function bestandAbhakbar(totals?: InboxTotals, markable?: InboxMarkable): number;
 declare function hinweisZurListe(angezeigt: number, bestand: number): string | null;
 
 /**
@@ -382,13 +398,21 @@ interface UseAbhakenOptions {
 interface UseAbhakenResult {
     /** Schluessel der Zeilen, die in dieser Sitzung abgehakt wurden. */
     abgehakt: Set<string>;
-    /** Ob „alle eigenen" gelaufen ist. */
+    /**
+     * Ob „alle" gelaufen ist — hier und in jedem System, das abhaken kann
+     * (seit v0.8.0, pm #10227).
+     */
+    alleAbgehakt: boolean;
+    /** @deprecated Seit v0.8.0 gleich {@link alleAbgehakt}. */
     alleEigenenAbgehakt: boolean;
     /** Laeuft gerade ein Schreibvorgang? */
     laeuft: boolean;
     /** Was schiefging — oder `null`. Gehoert in die Ansicht, nicht ins Log. */
     fehler: string | null;
     abhaken: (zeilen: InboxItem[]) => Promise<void>;
+    /** Alles abhaken — hier und drüben. */
+    alle: () => Promise<void>;
+    /** @deprecated Seit v0.8.0 gleich {@link alle}. */
     alleEigenen: () => Promise<void>;
 }
 declare function useAbhaken(options?: UseAbhakenOptions): UseAbhakenResult;
@@ -405,10 +429,10 @@ declare function useAbhaken(options?: UseAbhakenOptions): UseAbhakenResult;
  *
  * Zwei Bedingungen, beide mit Grund:
  *
- * - **Sie ist von hier.** Löschen geht bewusst nicht über die
- *   Systemgrenze — die Begründung steht in `LoeschbareQuelle`. Eine fremde
- *   Zeile hat deshalb keinen Löschknopf, und das ist kein Mangel, sondern
- *   die Aussage: Was dort liegt, wird dort gelöscht.
+ * - **Ihr System kann es.** Bis v0.8.0 hiess das „sie ist von hier":
+ *   Löschen ging nicht über die Systemgrenze. Seit pm #10227 meldet jedes
+ *   System in `deletable.sources`, was bei ihm löschbar ist, und der Klick
+ *   geht dorthin, wo die Zeile liegt.
  * - **Die Art erlaubt es.** Nur wo eine löschbare Quelle steht, findet der
  *   Klick ein Ziel. Eine Aufgabe oder einen Beleg „aus dem Posteingang zu
  *   löschen" wäre wirkungslos oder ein Datenverlust im Fremdsystem.
@@ -442,6 +466,12 @@ declare function artLoeschbar(art: string, deletable?: InboxDeletable): boolean;
  */
 declare function eigenerBestandDerArt(art: string, totals?: InboxTotals): number;
 /**
+ * Was „Alle … loeschen" trifft: der eigene Bestand der Art plus der jedes
+ * Systems, das die Art loeschbar meldet (pm #10227). Fuer die Zahl in der
+ * Rueckfrage — sie soll sagen, was wirklich verschwindet.
+ */
+declare function loeschbarerBestandDerArt(art: string, totals?: InboxTotals, deletable?: InboxDeletable): number;
+/**
  * Der Satz in der Rückfrage.
  *
  * Mit der Zahl und mit dem Wort der Art, nicht „alle Einträge": Wer den
@@ -463,8 +493,9 @@ declare function loeschFrage(wort: string, bestand: number, angezeigt: number): 
  *
  * 1. **`DELETE` statt `POST`.** Hier verschwindet etwas, und das Verb soll
  *    es sagen.
- * 2. **Keine Herkunft in der Nutzlast.** Gelöscht wird nur Eigenes — siehe
- *    `loeschen.ts`. Ein `source`-Feld gäbe es nur, um immer `null` zu sein.
+ * 2. **Die Herkunft fährt mit (seit v0.8.0, pm #10227).** Bis dahin wurde
+ *    nur Eigenes gelöscht. Jetzt geht eine fremde Zeile dorthin, wo sie
+ *    liegt — wenn ihr System die Art als löschbar meldet (`loeschen.ts`).
  * 3. **`alle` braucht die ART.** „Alle meine Meldungen löschen" ist eine
  *    Aussage über Meldungen; ohne Art nähme derselbe Knopf beim nächsten
  *    löschbaren Vokabular stillschweigend mehr mit, als draufsteht.
@@ -519,4 +550,20 @@ declare function useLoeschen(options?: UseLoeschenOptions): UseLoeschenResult;
  */
 declare function csrfHeaders(): Record<string, string>;
 
-export { type InboxData, type InboxDeletable, type InboxItem, type InboxKind, InboxList, type InboxMarkable, InboxPage, type InboxTotals, type UseAbhakenOptions, type UseAbhakenResult, type UseLoeschenOptions, type UseLoeschenResult, artLoeschbar, bekannteFarben, bekannteSymbole, bestandJeArt, csrfHeaders, darfAbhaken, darfLoeschen, eigenerBestandAbhakbar, eigenerBestandDerArt, hinweisZurListe, inboxIcon, inboxSurfaceClass, inboxTextClass, istEigenAbhakbar, loeschFrage, nochUngelesen, useAbhaken, useLoeschen, zeilenSchluessel };
+/**
+ * Das Ereignis „im Posteingang hat sich etwas geändert" (pm #10227).
+ *
+ * Die Seite löst es nach jedem erfolgreichen Abhaken und Löschen aus. Der
+ * Posteingangs-Knopf in der Kopfzeile (`InboxButton` aus
+ * `@peppermint-digital/notifications`) hört darauf und zählt sofort neu,
+ * statt bis zum nächsten Takt — bis zu einer Minute — die alte Zahl zu
+ * zeigen. Bastian, 25.11.2026: „Die Zahlen verändern sich nicht."
+ *
+ * Ein Fensterereignis und kein gemeinsamer Zustand: Die beiden Pakete
+ * kennen sich nicht, und der Knopf hängt in jeder Seite, die Liste nur in
+ * einer. Der Name steht deshalb in beiden Paketen wörtlich gleich.
+ */
+declare const POSTEINGANG_GEAENDERT = "peppermint:posteingang-geaendert";
+declare function meldePosteingangGeaendert(): void;
+
+export { type InboxData, type InboxDeletable, type InboxItem, type InboxKind, InboxList, type InboxMarkable, InboxPage, type InboxTotals, POSTEINGANG_GEAENDERT, type UseAbhakenOptions, type UseAbhakenResult, type UseLoeschenOptions, type UseLoeschenResult, artLoeschbar, bekannteFarben, bekannteSymbole, bestandAbhakbar, bestandJeArt, csrfHeaders, darfAbhaken, darfLoeschen, eigenerBestandAbhakbar, eigenerBestandDerArt, hinweisZurListe, inboxIcon, inboxSurfaceClass, inboxTextClass, istEigenAbhakbar, loeschFrage, loeschbarerBestandDerArt, meldePosteingangGeaendert, nochUngelesen, useAbhaken, useLoeschen, zeilenSchluessel };

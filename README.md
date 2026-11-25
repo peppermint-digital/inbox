@@ -124,7 +124,8 @@ Liste** steht, ändert daran nichts: Das Paket schickt ihn dorthin.
 | Vorgang | Fähigkeit | Werkzeug |
 |---|---|---|
 | holen | `inbox.entries` | `list-inbox-entries-tool` |
-| abhaken | `inbox.read` | `mark-inbox-entries-read-tool` |
+| abhaken | `inbox.read` | `mark-inbox-entries-read-tool` (`ids` oder `all=true`) |
+| löschen | `inbox.delete` | `delete-inbox-entries-tool` (seit v0.8.0) |
 
 Beide Seiten liegen im Paket. Ein Produkt registriert nur die Werkzeuge in
 seinem MCP-Server und meldet seine Quellen an — es schreibt keinen
@@ -276,18 +277,44 @@ class MeldungsQuelle implements AbhakbareQuelle, ZaehlbareQuelle, LoeschbareQuel
 Welche Arten es können, sagt der Server als `deletable`. Die Ansicht rät
 nicht: Wo der Vertrag fehlt, gibt es keinen Knopf.
 
-### 2. Nur die EIGENEN Zeilen
+### 2. Auch fremde Zeilen — wenn ihr System es meldet (seit v0.8.0)
 
-Abhaken geht über die Systemgrenze (`inbox.read` über den Gateway). Löschen
-**nicht**. Eine fremde Zeile hat keinen Löschknopf, und das ist kein Mangel,
-sondern die Aussage: Was dort liegt, wird dort gelöscht.
+Bis v0.8.0 stand hier „nur die EIGENEN Zeilen": Löschen ging nicht über die
+Systemgrenze, mit der Begründung, den Knopf vermisse noch niemand. Am
+25.11.2026 (pm #10227) vermisste ihn Bastian im Manager: 1320 seiner 1461
+Zeilen kamen aus AI Brain, und keine ließ sich wegmachen.
 
-Analog ginge es mit einer Fähigkeit `inbox.delete` samt Freigabe je Produkt.
-Bewusst nicht gebaut: Der Hauptfall ist, seine eigenen Meldungen dort
-loszuwerden, wo sie liegen — bei 4113 Meldungen von AI Brain ist das AI Brain.
-Einen Schreibweg quer durch den Verbund für einen Knopf zu bauen, den noch
-niemand vermisst hat, wäre die teurere Hälfte zuerst. Kommt er, ist er
-additiv: `deletable` bekommt ein `sources`.
+Seither:
+
+- Jedes System meldet in `list-inbox-entries-tool` unter `deletable`, welche
+  Arten bei ihm löschbar sind. Die Seite bekommt das als
+  `deletable.sources.<herkunft>` und zeichnet nur dort einen Mülleimer.
+- Der Klick geht mit `source` an `DELETE /posteingang/zeilen` und von dort
+  über `SchreibendeRemoteSource` an `delete-inbox-entries-tool` des Systems
+  (`inbox.delete` im Komm-Layer).
+- „Alle meine … löschen" nimmt die Art hier UND in jedem System, das sie
+  löschbar meldet; die Rückfrage nennt die Summe. Scheitert ein System, steht
+  es in `failed`, die anderen sind trotzdem erledigt.
+- Ein System auf älterem Stand meldet nichts — dort bleibt es beim Alten.
+
+### „Alle als gelesen" nimmt alle Systeme (seit v0.8.0)
+
+`POST /posteingang/gelesen` mit `alle: true` hakt hier alles ab und ruft in
+jedem System, das abhakbare Arten meldet, `mark-inbox-entries-read-tool` mit
+`all=true`. Der Knopf heißt „Alle N als gelesen" und N ist die Summe —
+bis v0.8.0 stand „Alle 1 eigenen" neben einem Abzeichen mit 1461.
+
+### Nach jedem Schreiben: Puffer weg, Kopfzeile neu
+
+- Die fremden Zeilen hält `GesamtInbox` eine Minute vor. Nach jedem Abhaken
+  oder Löschen in einem anderen System wird dieser Puffer verworfen
+  (`GesamtInbox::pufferVergessen()`); sonst kam die alte Fassung zurück.
+- Die Seite löst danach das Fensterereignis `peppermint:posteingang-geaendert`
+  aus (`POSTEINGANG_GEAENDERT`). Der `InboxButton` aus
+  `@peppermint-digital/notifications` hört darauf und zählt sofort neu.
+- Das Abhaken beim Öffnen geht mit `keepalive`: Eine fremde Zeile führt aus
+  der Anwendung hinaus, und ohne `keepalive` bricht der Browser die Anfrage
+  mit dem Seitenwechsel ab.
 
 ### 3. „Alle" fragt nach, einzeln nicht
 
@@ -370,4 +397,6 @@ vorkommt; zwischen „alles" und „alles" zu filtern ist kein Filter.
 Eine Fähigkeit ohne Eintrag in `comm_layer.gateway_grants.<slug>` ist nicht
 freigeschaltet, und „nicht erlaubt" sieht in der Ansicht aus wie „nichts da".
 Für den Verbund braucht jedes Produkt neben `inbox.entries` jetzt auch
-`inbox.read`.
+`inbox.read` und — für den Mülleimer an fremden Zeilen — `inbox.delete`.
+Die Nabe (AI Brain) wird direkt gerufen; sie muss `DeleteInboxEntriesTool`
+in ihrem MCP-Server registrieren.

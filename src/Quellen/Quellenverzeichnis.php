@@ -263,12 +263,14 @@ class Quellenverzeichnis
      *
      * @return int Wie viele Zeilen sich tatsaechlich geaendert haben.
      */
-    public function allesAlsGelesen(Model $person): int
+    public function allesAlsGelesen(Model $person, ?string $art = null): int
     {
         $geaendert = 0;
 
         foreach ($this->alle() as $quelle) {
-            if ($quelle instanceof AbhakbareQuelle) {
+            // Mit Art nur deren Quellen (pm #10227, `all` im Werkzeug mit
+            // `kind`); ohne Art alles Abhakbare wie bisher.
+            if ($quelle instanceof AbhakbareQuelle && ($art === null || $quelle->art() === $art)) {
                 $geaendert += $quelle->allesAlsGelesen($person);
             }
         }
@@ -344,6 +346,15 @@ class Quellenverzeichnis
      *
      * @return array<int, LoeschbareQuelle>
      */
+    /**
+     * Ob eine Art hier ueberhaupt loeschbar ist — fuer „alle der Art" ueber
+     * mehrere Systeme, wo eine fehlende eigene Quelle kein Fehler ist.
+     */
+    public function istLoeschbar(string $art): bool
+    {
+        return $this->loeschbare($art) !== [];
+    }
+
     private function loeschbare(string $art): array
     {
         return array_values(array_filter(

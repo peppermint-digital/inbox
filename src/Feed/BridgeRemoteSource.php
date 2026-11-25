@@ -14,7 +14,7 @@ use RuntimeException;
  * und es hat selbst eine Inbox — ohne diesen Eintrag saehe ein Produkt
  * alles ausser dem groessten Beitraeger.
  */
-class BridgeRemoteSource implements RemoteSource
+class BridgeRemoteSource implements SchreibendeRemoteSource
 {
     private const HUB_SLUG = 'ai-brain';
 
@@ -82,28 +82,68 @@ class BridgeRemoteSource implements RemoteSource
 
     public function alsGelesen(string $slug, string $adresse, string $art, array $ids): int
     {
+        return Auspacken::abgehakt(
+            $this->schreiben($slug, $adresse, Abhaken::TOOL, Abhaken::CAPABILITY, ['kind' => $art, 'ids' => $ids])
+        );
+    }
+
+    /**
+     * Alles abhaken — ein Aufruf mit `all`, keine Kennungsliste (pm #10227).
+     *
+     * Ein System auf aelterem Stand kennt `all` nicht und antwortet mit
+     * einem Fehler („Missing kind" / „Missing ids"). Der kommt hier als
+     * Ausnahme an und NICHT als Null: Wer „alle" drueckt und drueben bleibt
+     * alles stehen, muss das sehen.
+     */
+    public function alleAlsGelesen(string $slug, string $adresse, ?string $art = null): int
+    {
+        return Auspacken::abgehakt(
+            $this->schreiben($slug, $adresse, Abhaken::TOOL, Abhaken::CAPABILITY, array_filter(
+                ['all' => true, 'kind' => $art],
+                static fn ($wert): bool => $wert !== null,
+            ))
+        );
+    }
+
+    public function loeschen(string $slug, string $adresse, string $art, array $ids): int
+    {
+        return Auspacken::geloescht(
+            $this->schreiben($slug, $adresse, Loeschen::TOOL, Loeschen::CAPABILITY, ['kind' => $art, 'ids' => $ids])
+        );
+    }
+
+    public function allesLoeschen(string $slug, string $adresse, string $art): int
+    {
+        return Auspacken::geloescht(
+            $this->schreiben($slug, $adresse, Loeschen::TOOL, Loeschen::CAPABILITY, ['kind' => $art, 'all' => true])
+        );
+    }
+
+    /**
+     * Ein Schreibaufruf in ein anderes System — die Nabe direkt, alle
+     * anderen ueber ihren Gateway.
+     *
+     * @param  array<string, mixed>  $argumente
+     * @return array<mixed>
+     */
+    private function schreiben(string $slug, string $adresse, string $werkzeug, string $faehigkeit, array $argumente): array
+    {
         if (! Bruecke::eingerichtet()) {
             // Ohne Bruecke gibt es keine fremden Zeilen, also auch keine
-            // abzuhaken. Kaeme hier trotzdem eine an, waere die Herkunft
-            // falsch gesetzt — und das gehoert gesagt, nicht gezaehlt.
-            throw new RuntimeException('Keine Bruecke eingerichtet — eine fremde Zeile kann hier nicht abgehakt werden.');
+            // abzuhaken oder zu loeschen. Kaeme hier trotzdem eine an, waere
+            // die Herkunft falsch gesetzt — und das gehoert gesagt, nicht
+            // gezaehlt.
+            throw new RuntimeException('Keine Bruecke eingerichtet — eine fremde Zeile kann hier nicht bearbeitet werden.');
         }
 
         if ($slug === self::HUB_SLUG) {
             // Wie beim Holen: die Nabe direkt, nicht ueber ihren eigenen
             // Gateway. Sie wuerde sich sonst selbst weiterreichen.
-            return Auspacken::abgehakt(
-                (array) AiBrain::call(Abhaken::TOOL, ['kind' => $art, 'ids' => $ids])
-            );
+            return (array) AiBrain::call($werkzeug, $argumente);
         }
 
-        $antwort = AiBrain::gateway(
-            Abhaken::CAPABILITY,
-            ['kind' => $art, 'ids' => $ids],
-            $slug,
-            $adresse,
-        );
+        $antwort = AiBrain::gateway($faehigkeit, $argumente, $slug, $adresse);
 
-        return Auspacken::abgehakt(is_array($antwort) ? $antwort : []);
+        return is_array($antwort) ? $antwort : [];
     }
 }

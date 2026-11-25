@@ -3,6 +3,7 @@
 namespace Peppermint\Inbox\Feed;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 use Peppermint\Inbox\Quellen\AbhakbareQuelle;
 use Peppermint\Inbox\Quellen\Quellenverzeichnis;
 use RuntimeException;
@@ -94,20 +95,80 @@ class Abhaken
             throw new RuntimeException('Ohne E-Mail-Adresse findet das andere System die Person nicht.');
         }
 
-        return $this->fremde->alsGelesen($quelle, $adresse, $art, $ids);
+        try {
+            return $this->fremde->alsGelesen($quelle, $adresse, $art, $ids);
+        } finally {
+            // Auch nach einem Fehlschlag: Was drueben angekommen ist, soll
+            // beim naechsten Laden stimmen, nicht eine Minute spaeter.
+            GesamtInbox::pufferVergessen($person);
+        }
     }
 
     /**
      * Alles abhaken, was dieser Person HIER ungelesen liegt.
      *
-     * Bewusst nur die eigenen. Was in einem anderen System liegt, kann
-     * dieses hier weder zeigen noch abraeumen, und es in einen Knopf zu
-     * mischen, der „alle" sagt, waere ein Versprechen, das er nicht haelt.
+     * Nur die eigenen — fuer ein Produkt, das ausdruecklich nichts anderes
+     * will. Der Knopf auf der Seite nimmt {@see alle()}.
      *
      * @return int Wie viele Zeilen sich tatsaechlich geaendert haben.
      */
     public function alleEigenen(Model $person): int
     {
         return $this->eigene->allesAlsGelesen($person);
+    }
+
+    /**
+     * Alles abhaken — hier UND in jedem anderen System, das Zeilen dieser
+     * Person zeigt und sie abhaken kann (pm #10227).
+     *
+     * ## Warum nicht mehr „nur die eigenen"
+     *
+     * Hier stand bis v0.8.0: „Was in einem anderen System liegt, kann
+     * dieses hier weder zeigen noch abraeumen." Zeigen konnte es sie aber
+     * laengst. Bei Bastian stand der Knopf auf „Alle 1 eigenen als
+     * gelesen", das Abzeichen auf 1461 — und nach dem Klick auf 1460. Ein
+     * Knopf, der neben einer solchen Zahl steht, wird als „alle" gelesen,
+     * egal was draufsteht.
+     *
+     * ## Ein System, das nicht kann, haelt die anderen nicht auf
+     *
+     * Jedes System wird fuer sich gefragt. Scheitert eines (aelterer Stand
+     * ohne `all`, nicht erreichbar), stehen seine Zeilen weiter da und sein
+     * Name kommt in `failed` zurueck — die Oberflaeche sagt es. Die anderen
+     * sind trotzdem abgehakt.
+     *
+     * @return array{marked: int, failed: array<int, string>}
+     */
+    public function alle(Model $person): array
+    {
+        $geaendert = $this->eigene->allesAlsGelesen($person);
+        $gescheitert = [];
+
+        $adresse = trim((string) $person->getAttribute('email'));
+
+        if ($adresse !== '' && $this->fremde instanceof SchreibendeRemoteSource) {
+            $faehig = app(GesamtInbox::class)->fremdeFaehigkeiten($person)['markable'];
+
+            foreach ($faehig as $quelle => $arten) {
+                if ($arten === [] || ! is_string($quelle) || $quelle === '') {
+                    continue;
+                }
+
+                try {
+                    $geaendert += $this->fremde->alleAlsGelesen($quelle, $adresse);
+                } catch (\Throwable $fehler) {
+                    $gescheitert[] = $quelle;
+
+                    Log::warning('Ein System hat „alle als gelesen" nicht angenommen.', [
+                        'system' => $quelle,
+                        'error' => $fehler->getMessage(),
+                    ]);
+                }
+            }
+
+            GesamtInbox::pufferVergessen($person);
+        }
+
+        return ['marked' => $geaendert, 'failed' => $gescheitert];
     }
 }
