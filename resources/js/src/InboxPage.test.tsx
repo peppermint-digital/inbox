@@ -1001,3 +1001,34 @@ describe('Der offene Reiter steht in der Adresse (pm #10227)', () => {
         expect(screen.getByRole('tab', { name: /Neue Aufgaben/ }).getAttribute('aria-selected')).toBe('true');
     });
 });
+
+describe('Der ganze Verlauf einer Art (pm #10233)', () => {
+    const mitVerlauf = () =>
+        daten({
+            items: [zeile({ kind: 'activity', is_unread: false })],
+            kinds: [
+                { key: 'aufgabe', label: 'Neue Aufgaben', icon: 'inbox', color: 'blue', order: 10 },
+                {
+                    key: 'activity',
+                    label: 'Aktivitäten',
+                    icon: 'activity',
+                    color: 'gray',
+                    order: 50,
+                    history: '/activity',
+                },
+            ],
+            counts: {},
+        });
+
+    it('fuehrt im Reiter dieser Art auf den Verlauf', () => {
+        render(<InboxPage {...mitVerlauf()} {...basis} initialKind="activity" />);
+
+        expect(screen.getByRole('link', { name: /Ganzer Verlauf/ }).getAttribute('href')).toBe('/activity');
+    });
+
+    it('steht in einem Reiter ohne Verlauf nicht', () => {
+        render(<InboxPage {...mitVerlauf()} {...basis} initialKind="aufgabe" />);
+
+        expect(screen.queryByRole('link', { name: /Ganzer Verlauf/ })).toBeNull();
+    });
+});

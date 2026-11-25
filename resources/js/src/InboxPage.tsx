@@ -717,6 +717,23 @@ export function InboxPage({
             </div>
 
             {satz !== null && <p className="text-center text-xs text-muted-foreground">{satz}</p>}
+
+            {/*
+                Der ganze Verlauf einer Art (pm #10233). Der Posteingang zeigt
+                die neuesten Zeilen; im Manager stand der Rest auf einer
+                eigenen Seite in der Seitenleiste, die es dort nicht mehr gibt.
+                Ein gewoehnlicher Link wie der zu den Einstellungen.
+            */}
+            {offeneArt?.history && (
+                <p className="text-center">
+                    <a
+                        href={offeneArt.history}
+                        className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                    >
+                        Ganzer Verlauf: {offeneArt.label} →
+                    </a>
+                </p>
+            )}
         </div>
     );
 }

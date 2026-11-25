@@ -5,6 +5,8 @@ export interface InboxKind {
     icon: string;
     color: string;
     order: number;
+    /** Pfad zum ganzen Verlauf dieser Art in DIESEM System (pm #10233). */
+    history?: string;
 }
 
 /** Eine Zeile in der Inbox. */

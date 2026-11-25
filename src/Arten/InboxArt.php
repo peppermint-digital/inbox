@@ -30,6 +30,16 @@ final readonly class InboxArt
          * eine Datei zu aendern, die allen gehoert.
          */
         public int $reihenfolge = 100,
+        /**
+         * Wo der GANZE Verlauf dieser Art steht — ein Pfad in diesem System
+         * (pm #10233). Der Posteingang zeigt nur die neuesten Zeilen einer
+         * Art; wer mehr will, kommt ueber den Link im Reiter dorthin.
+         *
+         * Nur fuer eigene Arten: Eine Art aus einem anderen System wird ohne
+         * ihn nachgebaut ({@see InboxArten::alle()}), sein Pfad fuehrte hier
+         * ins Leere.
+         */
+        public ?string $verlauf = null,
     ) {}
 
     /** @return array<string, mixed> */
@@ -41,6 +51,8 @@ final readonly class InboxArt
             'icon' => $this->symbol,
             'color' => $this->farbe,
             'order' => $this->reihenfolge,
+            // Nur wenn es einen gibt — die Form der uebrigen Arten bleibt.
+            ...($this->verlauf !== null ? ['history' => $this->verlauf] : []),
         ];
     }
 }

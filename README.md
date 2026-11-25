@@ -30,6 +30,15 @@ app(Quellenverzeichnis::class)->anmelden(OffeneAufgaben::class);
 Ein Produkt, das das Paket installiert und nichts anmeldet, hat eine leere
 Inbox. Das ist der richtige Ausgangszustand.
 
+Zeigt eine Art nur die neuesten Zeilen und gibt es den ganzen Bestand auf
+einer eigenen Seite, nennt `verlauf` deren Pfad. Im Reiter steht dann
+„Ganzer Verlauf: …" (ab v0.8.1, pm #10233). Nur für eigene Arten: Eine Art
+aus einem anderen System kommt ohne Verlauf an, sein Pfad gälte hier nicht.
+
+```php
+new InboxArt('activity', 'Aktivitäten', symbol: 'activity', reihenfolge: 50, verlauf: '/activity')
+```
+
 ## Über die Systemgrenze
 
 Jedes System gibt seine **eigenen** Einträge über das MCP-Werkzeug

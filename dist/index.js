@@ -911,7 +911,19 @@ function InboxPage({
         )
       }
     ) }),
-    satz !== null && /* @__PURE__ */ jsx3("p", { className: "text-center text-xs text-muted-foreground", children: satz })
+    satz !== null && /* @__PURE__ */ jsx3("p", { className: "text-center text-xs text-muted-foreground", children: satz }),
+    offeneArt?.history && /* @__PURE__ */ jsx3("p", { className: "text-center", children: /* @__PURE__ */ jsxs2(
+      "a",
+      {
+        href: offeneArt.history,
+        className: "text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline",
+        children: [
+          "Ganzer Verlauf: ",
+          offeneArt.label,
+          " \u2192"
+        ]
+      }
+    ) })
   ] });
 }
 function artAusAdresse(param, bekannt) {

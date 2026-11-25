@@ -45,3 +45,30 @@ it('kennt eine Art erst, wenn sie angemeldet wurde', function (): void {
 
     expect(app(InboxArten::class)->kennt('aufgabe'))->toBeTrue();
 });
+
+it('nennt den Verlauf einer Art, wenn sie einen hat (pm #10233)', function (): void {
+    // Die Aktivitaeten-Seite stand in der Seitenleiste des Managers. Seit
+    // sie dort weg ist, fuehrt der Reiter „Aktivitaeten" auf den ganzen
+    // Verlauf — der Posteingang zeigt nur die neuesten Zeilen.
+    app(InboxArten::class)->registriereViele([
+        new InboxArt('activity', 'Aktivitäten', reihenfolge: 50, verlauf: '/activity'),
+        new InboxArt('task', 'Neue Aufgaben', reihenfolge: 10),
+    ]);
+
+    $alle = app(InboxArten::class)->alle();
+
+    expect($alle[1]['history'])->toBe('/activity')
+        // Ohne Verlauf kein Schluessel: Die Form der uebrigen Arten bleibt,
+        // wie sie war — auch fuer ein System, das ihn noch nicht kennt.
+        ->and($alle[0])->not->toHaveKey('history');
+});
+
+it('uebernimmt den Verlauf einer FREMDEN Art nicht', function (): void {
+    // Der Pfad gehoert dem anderen System. Hier angehaengt, fuehrte er auf
+    // eine Seite, die es hier nicht gibt.
+    $alle = app(InboxArten::class)->alle([], [
+        ['key' => 'rechnung', 'label' => 'Belege', 'icon' => 'file-text', 'color' => 'orange', 'order' => 25, 'history' => '/belege'],
+    ]);
+
+    expect($alle[0])->not->toHaveKey('history');
+});
