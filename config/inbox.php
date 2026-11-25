@@ -99,7 +99,7 @@ return [
     | alles.
     |
     | Bastian, 25.11.2026 („Ja, mach alles."): Betriebsmeldungen aus AI Brain
-    | gehoeren nicht in die Glocke eines Produkts. Gemessen am selben Tag:
+    | gehoeren nicht in den Posteingang eines Produkts. Gemessen am selben Tag:
     | app.health, email.health, schedule.overdue, infra.*, codebase.audit,
     | usage.*, channel.pressure — 3.678 von 6.150 ungelesenen AI-Brain-Zeilen
     | bei den neun verbundenen Personen; fuenf davon sahen NUR Betrieb.
@@ -107,7 +107,7 @@ return [
     | ## Warum eine Liste der GEZEIGTEN und keine der versteckten
     |
     | So entschieden: Was neu dazukommt, erscheint erst, wenn es hier steht.
-    | Eine neue Betriebsart kann so nicht unbemerkt wieder in jede Glocke
+    | Eine neue Betriebsart kann so nicht unbemerkt wieder in jeden Posteingang
     | laufen.
     |
     | ## Warum der Filter DRUEBEN wirkt

@@ -15,7 +15,7 @@ use Peppermint\Inbox\Tests\Support\User;
  * Nur die gezeigten Arten eines anderen Systems (pm #10227).
  *
  * Bastian, 25.11.2026: Betriebsmeldungen aus AI Brain (app.health,
- * infra.* ...) gehoeren nicht in die Glocke des Managers. Weil AI Brain die
+ * infra.* ...) gehoeren nicht in den Posteingang des Managers. Weil AI Brain die
  * Zahlen rechnet, wirkt der Filter dort — ueber `types`.
  */
 beforeEach(function (): void {
