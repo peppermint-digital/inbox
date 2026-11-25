@@ -567,6 +567,8 @@ function InboxPage({
   onOpen,
   renderActions,
   initialKind,
+  kindParam = "art",
+  onKindChange,
   settingsHref = "/settings/notifications",
   readHref = "/posteingang/gelesen",
   onMarked,
@@ -586,7 +588,23 @@ function InboxPage({
     () => kinds.find((k) => (counts[k.key] ?? 0) > 0)?.key ?? kinds[0]?.key ?? "",
     [kinds, counts]
   );
-  const [offen, setOffen] = useState3(initialKind ?? ersterMitInhalt);
+  const [offen, setOffen] = useState3(
+    () => initialKind ?? artAusAdresse(kindParam, kinds.map((k) => k.key)) ?? ersterMitInhalt
+  );
+  const waehlen = (art) => {
+    setOffen(art);
+    if (!kindParam || typeof window === "undefined") {
+      return;
+    }
+    const adresse = new URL(window.location.href);
+    adresse.searchParams.set(kindParam, art);
+    const ziel = adresse.pathname + adresse.search + adresse.hash;
+    if (onKindChange) {
+      onKindChange(art, ziel);
+    } else {
+      window.history.replaceState(window.history.state, "", ziel);
+    }
+  };
   const zeilen = useMemo(
     () => items.filter(
       (item) => !papierkorb.geloescht.has(zeilenSchluessel(item)) && // Nach „alle der Art" faellt jede Zeile dieser Art
@@ -793,7 +811,7 @@ function InboxPage({
           type: "button",
           role: "tab",
           "aria-selected": aktiv,
-          onClick: () => setOffen(art.key),
+          onClick: () => waehlen(art.key),
           className: cn(
             // KEIN `flex-1`: Bei sechs Reitern quetscht das
             // jeden auf gleiche Breite, und der Zaehler wird
@@ -895,6 +913,13 @@ function InboxPage({
     ) }),
     satz !== null && /* @__PURE__ */ jsx3("p", { className: "text-center text-xs text-muted-foreground", children: satz })
   ] });
+}
+function artAusAdresse(param, bekannt) {
+  if (!param || typeof window === "undefined") {
+    return void 0;
+  }
+  const art = new URLSearchParams(window.location.search).get(param);
+  return art && bekannt.includes(art) ? art : void 0;
 }
 export {
   InboxList,

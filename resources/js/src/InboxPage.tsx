@@ -21,8 +21,27 @@ interface Props extends InboxData {
     formatTime: (iso: string) => string;
     onOpen: (item: InboxItem) => void;
     renderActions?: (item: InboxItem) => ReactNode;
-    /** Welcher Reiter zuerst offen ist. Ohne Angabe der erste mit Inhalt. */
+    /**
+     * Welcher Reiter zuerst offen ist. Ohne Angabe der aus der Adresse
+     * (`?art=`, siehe `kindParam`), sonst der erste mit Inhalt.
+     */
     initialKind?: string;
+    /**
+     * Unter welchem Namen der offene Reiter in der Adresse steht (pm #10227).
+     * Vorgabe `art`; `null` schaltet das ab.
+     *
+     * Bastian: „zurueck dorthin, wo ich herkam". Der Reiter lebte nur im
+     * Zustand der Komponente — wer aus „Benachrichtigungen" eine Zeile
+     * oeffnete und zurueckkam, landete wieder auf „Neue Aufgaben".
+     */
+    kindParam?: string | null;
+    /**
+     * Nach einem Reiterwechsel, mit der neuen Adresse. Ein Inertia-Produkt
+     * reicht hier `router.replace({ url, preserveState: true })` herein —
+     * sonst kennt Inertia die Adresse nicht, und das naechste Neuladen
+     * schriebe die alte zurueck. Ohne Angabe: `history.replaceState`.
+     */
+    onKindChange?: (kind: string, url: string) => void;
     /**
      * Wohin der Einstellungs-Knopf fuehrt.
      *
@@ -129,6 +148,8 @@ export function InboxPage({
     onOpen,
     renderActions,
     initialKind,
+    kindParam = 'art',
+    onKindChange,
     settingsHref = '/settings/notifications',
     readHref = '/posteingang/gelesen',
     onMarked,
@@ -177,7 +198,28 @@ export function InboxPage({
         [kinds, counts],
     );
 
-    const [offen, setOffen] = useState(initialKind ?? ersterMitInhalt);
+    const [offen, setOffen] = useState(
+        () => initialKind ?? artAusAdresse(kindParam, kinds.map((k) => k.key)) ?? ersterMitInhalt,
+    );
+
+    /** Reiter wechseln und ihn in die Adresse schreiben (pm #10227). */
+    const waehlen = (art: string): void => {
+        setOffen(art);
+
+        if (!kindParam || typeof window === 'undefined') {
+            return;
+        }
+
+        const adresse = new URL(window.location.href);
+        adresse.searchParams.set(kindParam, art);
+        const ziel = adresse.pathname + adresse.search + adresse.hash;
+
+        if (onKindChange) {
+            onKindChange(art, ziel);
+        } else {
+            window.history.replaceState(window.history.state, '', ziel);
+        }
+    };
 
     /*
      * Die Liste mit dem, was in dieser Sitzung schon abgehakt wurde.
@@ -538,7 +580,7 @@ export function InboxPage({
                             type="button"
                             role="tab"
                             aria-selected={aktiv}
-                            onClick={() => setOffen(art.key)}
+                            onClick={() => waehlen(art.key)}
                             className={cn(
                                 // KEIN `flex-1`: Bei sechs Reitern quetscht das
                                 // jeden auf gleiche Breite, und der Zaehler wird
@@ -680,3 +722,18 @@ export function InboxPage({
 }
 
 export default InboxPage;
+
+/**
+ * Der Reiter aus der Adresse — nur, wenn es die Art gibt. Eine fremde oder
+ * veraltete Angabe fuehrt auf den ersten Reiter mit Inhalt, nicht auf einen
+ * leeren, den es nicht gibt.
+ */
+function artAusAdresse(param: string | null, bekannt: string[]): string | undefined {
+    if (!param || typeof window === 'undefined') {
+        return undefined;
+    }
+
+    const art = new URLSearchParams(window.location.search).get(param);
+
+    return art && bekannt.includes(art) ? art : undefined;
+}

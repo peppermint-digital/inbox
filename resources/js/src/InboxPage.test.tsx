@@ -7,6 +7,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // findet jeden Reiter doppelt — eine Fehlermeldung, die nach einem Fehler
 // in der Komponente aussieht und keiner ist.
 afterEach(cleanup);
+
+// Seit der Reiter in der Adresse steht (pm #10227), schreibt ein Klick auf
+// einen Reiter `?art=…` — und jsdom behaelt die Adresse ueber die ganze
+// Datei. Ohne das oeffnete der naechste Test den Reiter des vorigen.
+afterEach(() => window.history.replaceState(null, '', '/'));
 import { InboxPage } from './InboxPage';
 import type { InboxData, InboxItem } from './types';
 
@@ -932,5 +937,67 @@ describe('Fremde Zeilen: gelesen und wegmachen (pm #10227)', () => {
         await vi.waitFor(() => expect(screen.getByText(/Nicht überall angekommen: ai-brain/)).toBeDefined());
         // Und die Zeile gilt NICHT als gelesen — drueben ist sie es nicht.
         expect(screen.getByRole('button', { name: /Alle 855 als gelesen/ })).toBeDefined();
+    });
+});
+
+describe('Der offene Reiter steht in der Adresse (pm #10227)', () => {
+    /*
+     * Bastian: „zurueck dorthin, wo ich herkam". Wer aus „Benachrichtigungen"
+     * eine Zeile oeffnete und mit Zurueck kam, landete auf „Neue Aufgaben" —
+     * der Reiter lebte nur im Zustand der Komponente.
+     */
+    const zwei = daten({
+        items: [zeile(), zeile({ id: '2', kind: 'meldung', title: 'Eine Meldung' })],
+        counts: { aufgabe: 1, meldung: 1 },
+    });
+
+    afterEach(() => {
+        window.history.replaceState(null, '', '/');
+    });
+
+    it('oeffnet den Reiter aus ?art=', () => {
+        window.history.replaceState(null, '', '/posteingang?art=meldung');
+
+        render(<InboxPage {...zwei} {...basis} />);
+
+        expect(screen.getByRole('tab', { name: /Benachrichtigungen/ }).getAttribute('aria-selected')).toBe('true');
+        expect(screen.getByText('Eine Meldung')).toBeDefined();
+    });
+
+    it('nimmt bei einer unbekannten Art den ersten Reiter mit Inhalt', () => {
+        window.history.replaceState(null, '', '/posteingang?art=gibtsnicht');
+
+        render(<InboxPage {...zwei} {...basis} />);
+
+        expect(screen.getByRole('tab', { name: /Neue Aufgaben/ }).getAttribute('aria-selected')).toBe('true');
+    });
+
+    it('schreibt den gewaehlten Reiter in die Adresse', () => {
+        window.history.replaceState(null, '', '/posteingang?frisch=1');
+
+        render(<InboxPage {...zwei} {...basis} />);
+        fireEvent.click(screen.getByRole('tab', { name: /Benachrichtigungen/ }));
+
+        expect(window.location.search).toBe('?frisch=1&art=meldung');
+    });
+
+    it('ueberlaesst das Schreiben dem Produkt, wenn es einen Rueckruf gibt', () => {
+        window.history.replaceState(null, '', '/posteingang');
+        const gewechselt = vi.fn();
+
+        render(<InboxPage {...zwei} {...basis} onKindChange={gewechselt} />);
+        fireEvent.click(screen.getByRole('tab', { name: /Benachrichtigungen/ }));
+
+        expect(gewechselt).toHaveBeenCalledWith('meldung', '/posteingang?art=meldung');
+        // Die Adresse fasst das Paket dann nicht selbst an.
+        expect(window.location.search).toBe('');
+    });
+
+    it('laesst die Adresse in Ruhe, wenn kindParam null ist', () => {
+        window.history.replaceState(null, '', '/posteingang?art=meldung');
+
+        render(<InboxPage {...zwei} {...basis} kindParam={null} />);
+
+        expect(screen.getByRole('tab', { name: /Neue Aufgaben/ }).getAttribute('aria-selected')).toBe('true');
     });
 });

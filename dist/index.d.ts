@@ -120,8 +120,27 @@ interface Props$1 extends InboxData {
     formatTime: (iso: string) => string;
     onOpen: (item: InboxItem) => void;
     renderActions?: (item: InboxItem) => ReactNode;
-    /** Welcher Reiter zuerst offen ist. Ohne Angabe der erste mit Inhalt. */
+    /**
+     * Welcher Reiter zuerst offen ist. Ohne Angabe der aus der Adresse
+     * (`?art=`, siehe `kindParam`), sonst der erste mit Inhalt.
+     */
     initialKind?: string;
+    /**
+     * Unter welchem Namen der offene Reiter in der Adresse steht (pm #10227).
+     * Vorgabe `art`; `null` schaltet das ab.
+     *
+     * Bastian: „zurueck dorthin, wo ich herkam". Der Reiter lebte nur im
+     * Zustand der Komponente — wer aus „Benachrichtigungen" eine Zeile
+     * oeffnete und zurueckkam, landete wieder auf „Neue Aufgaben".
+     */
+    kindParam?: string | null;
+    /**
+     * Nach einem Reiterwechsel, mit der neuen Adresse. Ein Inertia-Produkt
+     * reicht hier `router.replace({ url, preserveState: true })` herein —
+     * sonst kennt Inertia die Adresse nicht, und das naechste Neuladen
+     * schriebe die alte zurueck. Ohne Angabe: `history.replaceState`.
+     */
+    onKindChange?: (kind: string, url: string) => void;
     /**
      * Wohin der Einstellungs-Knopf fuehrt.
      *
@@ -213,7 +232,7 @@ interface Props$1 extends InboxData {
  * immer da, man kann nichts anklicken." Der Satz beschrieb kein Versehen
  * in der Technik, sondern eine Oberflaeche ohne Griff.
  */
-declare function InboxPage({ items, kinds, counts, totals, markable, deletable, unreachable, failed, labels, formatTime, onOpen, renderActions, initialKind, settingsHref, readHref, onMarked, deleteHref, onDeleted, onRefresh, confirm: bestaetigen, title, subtitle, }: Props$1): react.JSX.Element;
+declare function InboxPage({ items, kinds, counts, totals, markable, deletable, unreachable, failed, labels, formatTime, onOpen, renderActions, initialKind, kindParam, onKindChange, settingsHref, readHref, onMarked, deleteHref, onDeleted, onRefresh, confirm: bestaetigen, title, subtitle, }: Props$1): react.JSX.Element;
 
 interface Props {
     items: InboxItem[];

@@ -392,6 +392,15 @@ was im Manager passiert ist" ist ohne ihn nicht beantwortbar. Die
 Herkunftsknöpfe erscheinen nur, wenn in der offenen Art mehr als ein System
 vorkommt; zwischen „alles" und „alles" zu filtern ist kein Filter.
 
+## Der offene Reiter steht in der Adresse (seit v0.8.0)
+
+`InboxPage` liest beim Start `?art=` (Name über `kindParam`, `null` schaltet ab)
+und schreibt den Reiter bei jedem Wechsel zurück. Ein Inertia-Produkt reicht
+`onKindChange={(art, url) => router.replace({ url, preserveState: true, preserveScroll: true })}`
+herein, damit Inertia die Adresse kennt; ohne Rückruf nimmt das Paket
+`history.replaceState`. Anlass (pm #10227): Wer aus „Benachrichtigungen" eine
+Zeile öffnete und mit Zurück kam, landete auf „Neue Aufgaben".
+
 ## Nur die gezeigten Arten eines anderen Systems: `inbox.fremde_typen` (seit v0.8.0)
 
 Je Herkunft eine Liste der Meldungs-Arten, die hier erscheinen (`''` = Meldungen
