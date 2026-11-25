@@ -789,7 +789,7 @@ function InboxPage({
     ] }),
     (unreachable.length > 0 || failed.length > 0) && // Eine still verkuerzte Liste sieht aus wie „da ist
     // nichts" — und dann sucht man im falschen System.
-    /* @__PURE__ */ jsxs2("div", { className: "rounded-md bg-warning-subtle px-3 py-2 text-sm text-warning-foreground", children: [
+    /* @__PURE__ */ jsxs2("div", { className: "rounded-md bg-warning-subtle px-3 py-2 text-sm text-warning-subtle-foreground", children: [
       unreachable.length > 0 && /* @__PURE__ */ jsxs2("p", { children: [
         "Nicht erreichbar: ",
         unreachable.join(", "),
