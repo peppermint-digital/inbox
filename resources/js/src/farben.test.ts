@@ -1,5 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+/// <reference types="vite/client" />
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -16,7 +15,11 @@ import { describe, expect, it } from 'vitest';
  * -subtle-foreground und -border. `ai` und `grade-*` fehlen in der
  * Verwaltung — die darf das Paket also nicht benutzen.
  */
-const QUELLE = __dirname;
+/**
+ * Ueber Vite statt node:fs: Dieses Paket hat keine Node-Typen, und die Tests
+ * in src laufen durch tsc.
+ */
+const QUELLEN = import.meta.glob<string>(['./**/*.{ts,tsx,css}', '!./**/*.test.{ts,tsx}'], { query: '?raw', import: 'default', eager: true });
 
 const ROHE_FARBE =
     /\b(?:bg|text|border|ring|fill|stroke|from|to|via|divide|outline)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b/g;
@@ -24,30 +27,30 @@ const ROHE_FARBE =
 const NUR_EINIGE_PRODUKTE = /\b(?:bg|text|border|ring)-(?:ai|grade-\d)(?:-[a-z-]+)?\b/g;
 
 /**
- * Bewusste Ausnahme: die Symbolfarben der Benachrichtigungsarten. Zehn Toene,
- * die Arten unterscheiden — eine Kategorienpalette wie in einem Diagramm,
- * kein Status. Kein gemeinsames Token deckt zehn Toene.
+ * Keine Ausnahme mehr: Auch die Symbolfarben der Arten (icons.ts) lesen seit
+ * F18 ihre Kategorie-Tokens. Fest steht dort nur der Rueckfall innerhalb von
+ * var(...), und den erkennt dieser Ausdruck nicht als Klasse.
  */
-const AUSNAHMEN = ['icons.ts'];
+const AUSNAHMEN: string[] = [];
 
-function dateien(): string[] {
-    return readdirSync(QUELLE, { recursive: true })
-        .map(String)
-        .filter((pfad) => /\.(tsx?|css)$/.test(pfad) && !/\.test\.tsx?$/.test(pfad) && !AUSNAHMEN.includes(pfad));
+function dateien(): [string, string][] {
+    return Object.entries(QUELLEN)
+        .map(([pfad, inhalt]): [string, string] => [pfad.replace(/^\.\//, ''), inhalt])
+        .filter(([pfad]) => !AUSNAHMEN.includes(pfad));
 }
 
 describe('Farben folgen dem Theme des Produkts', () => {
     it('nutzt keine feste Tailwind-Palette fuer Statusfarben', () => {
-        const funde = dateien().flatMap((pfad) =>
-            [...readFileSync(join(QUELLE, pfad), 'utf8').matchAll(ROHE_FARBE)].map((treffer) => `${pfad}: ${treffer[0]}`),
+        const funde = dateien().flatMap(([pfad, inhalt]) =>
+            [...inhalt.matchAll(ROHE_FARBE)].map((treffer) => `${pfad}: ${treffer[0]}`),
         );
 
         expect(funde).toEqual([]);
     });
 
     it('nutzt nur Tokens, die alle Produkte fuehren', () => {
-        const funde = dateien().flatMap((pfad) =>
-            [...readFileSync(join(QUELLE, pfad), 'utf8').matchAll(NUR_EINIGE_PRODUKTE)].map((treffer) => `${pfad}: ${treffer[0]}`),
+        const funde = dateien().flatMap(([pfad, inhalt]) =>
+            [...inhalt.matchAll(NUR_EINIGE_PRODUKTE)].map((treffer) => `${pfad}: ${treffer[0]}`),
         );
 
         expect(funde).toEqual([]);
