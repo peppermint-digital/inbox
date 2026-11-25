@@ -710,7 +710,7 @@ function InboxPage({
         /* @__PURE__ */ jsx3("h1", { className: "text-2xl font-semibold", children: title }),
         /* @__PURE__ */ jsx3("p", { className: "text-sm text-muted-foreground", children: subtitle })
       ] }),
-      /* @__PURE__ */ jsxs2("div", { className: "flex shrink-0 flex-wrap items-center gap-2", children: [
+      /* @__PURE__ */ jsxs2("div", { className: "flex min-w-0 flex-wrap items-center gap-2", children: [
         readHref !== null && offenAbhakbar > 0 && /* @__PURE__ */ jsxs2(
           "button",
           {
