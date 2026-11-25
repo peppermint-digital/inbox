@@ -498,9 +498,13 @@ declare function loeschbarerBestandDerArt(art: string, totals?: InboxTotals, del
  * daneben stehen Reiter für Aufgaben und Belege, und „alles löschen" liest
  * sich dort wie „meinen ganzen Posteingang".
  *
- * Steht der Bestand auf 0, nennt der Satz die gezeigte Menge: Der Bestand
- * zählt nur Ungelesenes, gelöscht wird aber auch Gelesenes. „0 löschen?"
- * wäre an einer Liste mit sichtbaren Zeilen offensichtlich falsch.
+ * ## „mindestens", und gelesene ausdrücklich (pm #10227)
+ *
+ * Der Bestand zählt nur UNGELESENES, gelöscht werden aber auch gelesene und
+ * ältere Zeilen, die nicht in der Liste stehen. Bis v0.8.0 stand hier
+ * deshalb eine zu kleine Zahl als genaue: Im E2E mit AI-Brain-Zeilen fragte
+ * die Rückfrage nach 53, gelöscht wurden 61. Die vollständige Zahl kennt die
+ * Seite nicht — also sagt der Satz „mindestens" und nennt die gelesenen.
  */
 declare function loeschFrage(wort: string, bestand: number, angezeigt: number): string;
 

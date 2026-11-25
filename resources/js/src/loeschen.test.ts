@@ -90,7 +90,8 @@ describe('loeschFrage', () => {
     it('nennt die Zahl und das Wort der Art', () => {
         // Der Knopf steht neben Reitern fuer Aufgaben und Belege. „Alles
         // loeschen" laese sich dort wie „meinen ganzen Posteingang".
-        expect(loeschFrage('Benachrichtigungen', 4113, 50)).toContain('4113 Benachrichtigungen');
+        expect(loeschFrage('Benachrichtigungen', 4113, 50)).toContain('Alle Benachrichtigungen');
+        expect(loeschFrage('Benachrichtigungen', 4113, 50)).toContain('mindestens 4113');
         expect(loeschFrage('Benachrichtigungen', 4113, 50)).toContain('nicht zurücknehmen');
     });
 
@@ -98,7 +99,15 @@ describe('loeschFrage', () => {
         // Der Bestand zaehlt nur Ungelesenes, geloescht wird auch
         // Gelesenes. „0 loeschen?" waere an einer Liste mit sichtbaren
         // Zeilen offensichtlich falsch.
-        expect(loeschFrage('Benachrichtigungen', 0, 12)).toContain('12 Benachrichtigungen');
+        expect(loeschFrage('Benachrichtigungen', 0, 12)).toContain('mindestens 12');
+    });
+
+    it('sagt „mindestens" und nennt die gelesenen (pm #10227)', () => {
+        // E2E 25.11.2026: Rueckfrage 53, geloescht 61 — gelesene und
+        // aeltere Zeilen standen nicht in der Zahl. Die ganze Zahl kennt die
+        // Seite nicht, also behauptet sie keine.
+        expect(loeschFrage('Benachrichtigungen', 3, 53)).toContain('mindestens 53');
+        expect(loeschFrage('Benachrichtigungen', 3, 53)).toContain('auch die gelesenen');
     });
 
     it('bleibt verstaendlich, wenn gar keine Zahl bekannt ist', () => {

@@ -315,8 +315,8 @@ function loeschbarerBestandDerArt(art, totals, deletable) {
   return summe;
 }
 function loeschFrage(wort, bestand, angezeigt) {
-  const zahl = bestand > 0 ? bestand : angezeigt;
-  return zahl > 0 ? `${zahl} ${wort} endg\xFCltig l\xF6schen? Das l\xE4sst sich nicht zur\xFCcknehmen.` : `Alle ${wort} endg\xFCltig l\xF6schen? Das l\xE4sst sich nicht zur\xFCcknehmen.`;
+  const zahl = Math.max(bestand, angezeigt);
+  return zahl > 0 ? `Alle ${wort} endg\xFCltig l\xF6schen, auch die gelesenen \u2014 mindestens ${zahl}? Das l\xE4sst sich nicht zur\xFCcknehmen.` : `Alle ${wort} endg\xFCltig l\xF6schen, auch die gelesenen? Das l\xE4sst sich nicht zur\xFCcknehmen.`;
 }
 
 // resources/js/src/useAbhaken.ts
