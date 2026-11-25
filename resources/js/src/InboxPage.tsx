@@ -560,7 +560,7 @@ export function InboxPage({
             {(unreachable.length > 0 || failed.length > 0) && (
                 // Eine still verkuerzte Liste sieht aus wie „da ist
                 // nichts" — und dann sucht man im falschen System.
-                <div className="rounded-md bg-warning-subtle px-3 py-2 text-sm text-warning-foreground">
+                <div className="rounded-md bg-warning-subtle px-3 py-2 text-sm text-warning-subtle-foreground">
                     {unreachable.length > 0 && (
                         <p>Nicht erreichbar: {unreachable.join(', ')}. Von dort fehlen gerade Einträge.</p>
                     )}
