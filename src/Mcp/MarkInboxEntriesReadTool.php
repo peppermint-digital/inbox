@@ -8,6 +8,7 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
 use Peppermint\Inbox\Feed\Abhaken;
 use Peppermint\Inbox\Mcp\Concerns\FindetHandelndePerson;
+use Peppermint\Inbox\Mcp\Concerns\LiestTypen;
 use Peppermint\Inbox\Quellen\Quellenverzeichnis;
 
 /**
@@ -45,6 +46,7 @@ use Peppermint\Inbox\Quellen\Quellenverzeichnis;
 class MarkInboxEntriesReadTool extends Tool
 {
     use FindetHandelndePerson;
+    use LiestTypen;
 
     protected string $description = 'Mark inbox entries of the acting person in this system as read. Either the kind and the ids of the rows, as reported by list-inbox-entries-tool, or all=true for every unread entry of the person (optionally only of one kind). Only the acting person\'s own entries; nothing else can be addressed.';
 
@@ -69,7 +71,7 @@ class MarkInboxEntriesReadTool extends Tool
          */
         if (filter_var($request->get('all'), FILTER_VALIDATE_BOOLEAN)) {
             try {
-                $geaendert = $quellen->allesAlsGelesen($person, $art === '' ? null : $art);
+                $geaendert = $quellen->allesAlsGelesen($person, $art === '' ? null : $art, $this->typen($request));
             } catch (\Throwable $fehler) {
                 return Response::error($fehler->getMessage());
             }
@@ -125,6 +127,8 @@ class MarkInboxEntriesReadTool extends Tool
                 ->description(sprintf('The entry ids to mark read. At most %d per call.', Abhaken::MAX_IDS)),
             'all' => $schema->boolean()
                 ->description('Mark every unread entry of the acting person as read (optionally only of "kind"). No ids needed.'),
+            'types' => $schema->array()
+                ->description('With all=true: only notifications of these types ("" = without type), the same list the caller shows.'),
         ];
     }
 }

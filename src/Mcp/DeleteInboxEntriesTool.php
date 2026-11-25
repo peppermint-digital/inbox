@@ -8,6 +8,7 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
 use Peppermint\Inbox\Feed\Loeschen;
 use Peppermint\Inbox\Mcp\Concerns\FindetHandelndePerson;
+use Peppermint\Inbox\Mcp\Concerns\LiestTypen;
 use Peppermint\Inbox\Quellen\LoeschbareQuelle;
 use Peppermint\Inbox\Quellen\Quellenverzeichnis;
 
@@ -35,6 +36,7 @@ use Peppermint\Inbox\Quellen\Quellenverzeichnis;
 class DeleteInboxEntriesTool extends Tool
 {
     use FindetHandelndePerson;
+    use LiestTypen;
 
     protected string $description = 'Delete inbox entries of the acting person in this system. Takes the kind and either the ids (as reported by list-inbox-entries-tool) or all=true for every entry of that kind, read or unread. Only kinds this system reports as deletable; only the acting person\'s own entries.';
 
@@ -55,7 +57,7 @@ class DeleteInboxEntriesTool extends Tool
         try {
             if (filter_var($request->get('all'), FILTER_VALIDATE_BOOLEAN)) {
                 return Response::json([
-                    'deleted' => $quellen->allesLoeschen($person, $art),
+                    'deleted' => $quellen->allesLoeschen($person, $art, $this->typen($request)),
                     'kind' => $art,
                     'all' => true,
                 ]);
@@ -90,6 +92,8 @@ class DeleteInboxEntriesTool extends Tool
                 ->description(sprintf('The entry ids to delete. At most %d per call.', Loeschen::MAX_IDS)),
             'all' => $schema->boolean()
                 ->description('Delete every entry of this kind of the acting person, read or unread.'),
+            'types' => $schema->array()
+                ->description('With all=true: only notifications of these types ("" = without type), the same list the caller shows.'),
         ];
     }
 }

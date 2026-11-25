@@ -88,4 +88,53 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Welche Arten eines ANDEREN Systems hier erscheinen (pm #10227)
+    |--------------------------------------------------------------------------
+    |
+    | Je Herkunft eine Liste der Meldungs-Arten (die fachliche Art einer
+    | Meldung, z. B. `task.done`), die dieses System zeigt. `''` steht fuer
+    | Meldungen ohne Art. Fehlt eine Herkunft oder steht dort `null`, kommt
+    | alles.
+    |
+    | Bastian, 25.11.2026 („Ja, mach alles."): Betriebsmeldungen aus AI Brain
+    | gehoeren nicht in die Glocke eines Produkts. Gemessen am selben Tag:
+    | app.health, email.health, schedule.overdue, infra.*, codebase.audit,
+    | usage.*, channel.pressure — 3.678 von 6.150 ungelesenen AI-Brain-Zeilen
+    | bei den neun verbundenen Personen; fuenf davon sahen NUR Betrieb.
+    |
+    | ## Warum eine Liste der GEZEIGTEN und keine der versteckten
+    |
+    | So entschieden: Was neu dazukommt, erscheint erst, wenn es hier steht.
+    | Eine neue Betriebsart kann so nicht unbemerkt wieder in jede Glocke
+    | laufen.
+    |
+    | ## Warum der Filter DRUEBEN wirkt
+    |
+    | Die Zahlen (Bestand je Art) rechnet das andere System. Ein Filter nur
+    | hier blendete Zeilen aus, liesse die Zahl aber stehen. Die Liste geht
+    | deshalb als `types` an list-inbox-entries-tool, und „alle als gelesen"
+    | / „alle loeschen" tragen sie mit — ausgeblendete Zeilen bleiben drueben
+    | unberuehrt. Ein System auf aelterem Stand ignoriert `types`; dann
+    | bleibt es, wie es war.
+    |
+    | Imkr ist eine eigene Art im Posteingang, keine Meldungs-Art, und bleibt.
+    |
+    */
+    'fremde_typen' => [
+        'ai-brain' => [
+            'task.done',
+            'bug.fixed',
+            'review.pending',
+            'idea.decided',
+            'avatar.scheduled',
+            'avatar.media',
+            'quest.completed',
+            'training.streak',
+            'zugang.einrichtungslink',
+            '',
+        ],
+    ],
+
 ];

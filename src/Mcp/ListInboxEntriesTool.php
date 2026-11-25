@@ -11,6 +11,7 @@ use Peppermint\Inbox\Feed\GesamtInbox;
 use Peppermint\Inbox\Feed\SourceLabels;
 use Peppermint\Inbox\Feed\Verweise;
 use Peppermint\Inbox\Mcp\Concerns\FindetHandelndePerson;
+use Peppermint\Inbox\Mcp\Concerns\LiestTypen;
 use Peppermint\Inbox\Quellen\Quellenverzeichnis;
 
 /**
@@ -52,6 +53,7 @@ use Peppermint\Inbox\Quellen\Quellenverzeichnis;
 class ListInboxEntriesTool extends Tool
 {
     use FindetHandelndePerson;
+    use LiestTypen;
 
     protected string $description = 'List the inbox entries of the acting person in this system — tasks, notifications and whatever else this product contributes. Read-only; the caller merges them with its own.';
 
@@ -73,7 +75,7 @@ class ListInboxEntriesTool extends Tool
             ]);
         }
 
-        $gesammelt = $quellen->sammeln($person, $grenze);
+        $gesammelt = $quellen->sammeln($person, $grenze, $this->typen($request));
 
         return Response::json([
             // Das eigene Wort liegt bei, damit der Aufrufer die Zeilen
@@ -140,6 +142,8 @@ class ListInboxEntriesTool extends Tool
         return [
             'limit' => $schema->integer()
                 ->description('How many at most, per kind. Default 100, maximum 500.'),
+            'types' => $schema->array()
+                ->description('Only these notification types (e.g. "task.done"; "" for notifications without a type). Lists and totals follow it. Omit for all.'),
         ];
     }
 }

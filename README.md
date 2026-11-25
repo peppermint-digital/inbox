@@ -392,6 +392,18 @@ was im Manager passiert ist" ist ohne ihn nicht beantwortbar. Die
 Herkunftsknöpfe erscheinen nur, wenn in der offenen Art mehr als ein System
 vorkommt; zwischen „alles" und „alles" zu filtern ist kein Filter.
 
+## Nur die gezeigten Arten eines anderen Systems: `inbox.fremde_typen` (seit v0.8.0)
+
+Je Herkunft eine Liste der Meldungs-Arten, die hier erscheinen (`''` = Meldungen
+ohne Art); fehlt die Herkunft, kommt alles. Vorgabe für `ai-brain`: nur
+Persönliches (`task.done`, `bug.fixed`, `review.pending`, …), keine
+Betriebsmeldungen (`app.health`, `infra.*`, …) — Bastian, 25.11.2026.
+
+Der Filter wirkt **drüben**: Die Liste geht als `types` an
+`list-inbox-entries-tool` (und an „alle als gelesen"/„alle löschen"), dort
+schränken Quellen mit `NachTypenFilterbar` Zeilen UND Bestand ein. Ein Filter nur
+hier ließe die Zahl stehen. Ein System auf älterem Stand ignoriert `types`.
+
 ## Freigabe im Komm-Layer nicht vergessen
 
 Eine Fähigkeit ohne Eintrag in `comm_layer.gateway_grants.<slug>` ist nicht

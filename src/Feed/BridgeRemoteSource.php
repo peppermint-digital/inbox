@@ -66,13 +66,13 @@ class BridgeRemoteSource implements SchreibendeRemoteSource
             // Die Nabe wird direkt gefragt, nicht ueber den Gateway: Sie
             // wuerde sich sonst selbst weiterreichen.
             return Auspacken::antwort(
-                (array) AiBrain::call('list-inbox-entries-tool', ['limit' => $grenze])
+                (array) AiBrain::call('list-inbox-entries-tool', $this->mitTypen($slug, ['limit' => $grenze]))
             );
         }
 
         $antwort = AiBrain::gateway(
             FremdeEintraege::CAPABILITY,
-            ['limit' => $grenze],
+            $this->mitTypen($slug, ['limit' => $grenze]),
             $slug,
             $adresse,
         );
@@ -98,10 +98,10 @@ class BridgeRemoteSource implements SchreibendeRemoteSource
     public function alleAlsGelesen(string $slug, string $adresse, ?string $art = null): int
     {
         return Auspacken::abgehakt(
-            $this->schreiben($slug, $adresse, Abhaken::TOOL, Abhaken::CAPABILITY, array_filter(
+            $this->schreiben($slug, $adresse, Abhaken::TOOL, Abhaken::CAPABILITY, $this->mitTypen($slug, array_filter(
                 ['all' => true, 'kind' => $art],
                 static fn ($wert): bool => $wert !== null,
-            ))
+            )))
         );
     }
 
@@ -115,8 +115,29 @@ class BridgeRemoteSource implements SchreibendeRemoteSource
     public function allesLoeschen(string $slug, string $adresse, string $art): int
     {
         return Auspacken::geloescht(
-            $this->schreiben($slug, $adresse, Loeschen::TOOL, Loeschen::CAPABILITY, ['kind' => $art, 'all' => true])
+            $this->schreiben($slug, $adresse, Loeschen::TOOL, Loeschen::CAPABILITY, $this->mitTypen($slug, ['kind' => $art, 'all' => true]))
         );
+    }
+
+    /**
+     * Die gezeigten Arten dieses Systems mitgeben (`inbox.fremde_typen`, pm #10227).
+     *
+     * Beim Holen UND bei „alle": Sonst haekte „alle als gelesen" drueben
+     * Zeilen ab, die hier gar nicht zu sehen sind. Einzelne Kennungen
+     * brauchen es nicht — die stammen aus der gezeigten Liste.
+     *
+     * @param  array<string, mixed>  $argumente
+     * @return array<string, mixed>
+     */
+    private function mitTypen(string $slug, array $argumente): array
+    {
+        $typen = ((array) config('inbox.fremde_typen', []))[$slug] ?? null;
+
+        if (is_array($typen)) {
+            $argumente['types'] = array_values(array_map('strval', $typen));
+        }
+
+        return $argumente;
     }
 
     /**

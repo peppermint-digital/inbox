@@ -52,10 +52,18 @@ class Quellenverzeichnis
     }
 
     /** @return array<int, InboxQuelle> */
-    public function alle(): array
+    public function alle(?array $typen = null): array
     {
         return array_map(
-            fn (string|InboxQuelle $q): InboxQuelle => is_string($q) ? $this->container->make($q) : $q,
+            function (string|InboxQuelle $q) use ($typen): InboxQuelle {
+                $quelle = is_string($q) ? $this->container->make($q) : $q;
+
+                // Nur auf Wunsch eines anderen Systems (pm #10227): dieselbe
+                // Quelle, auf die gezeigten Arten eingeschraenkt.
+                return $typen !== null && $quelle instanceof NachTypenFilterbar
+                    ? $quelle->nurTypen($typen)
+                    : $quelle;
+            },
             $this->quellen,
         );
     }
@@ -70,7 +78,7 @@ class Quellenverzeichnis
      *
      * @return array{items: array<int, array<string, mixed>>, kinds: array<int, string>, failed: array<int, string>, totals: array<string, int>, markable: array<int, string>, deletable: array<int, string>}
      */
-    public function sammeln(Model $person, int $grenze): array
+    public function sammeln(Model $person, int $grenze, ?array $typen = null): array
     {
         $zeilen = [];
         $arten = [];
@@ -79,7 +87,7 @@ class Quellenverzeichnis
         $abhakbar = [];
         $loeschbar = [];
 
-        foreach ($this->alle() as $quelle) {
+        foreach ($this->alle($typen) as $quelle) {
             $art = $quelle->art();
             $arten[] = $art;
 
@@ -159,11 +167,11 @@ class Quellenverzeichnis
      *
      * @return array<string, int>
      */
-    public function bestand(Model $person, int $grenze): array
+    public function bestand(Model $person, int $grenze, ?array $typen = null): array
     {
         $bestand = [];
 
-        foreach ($this->alle() as $quelle) {
+        foreach ($this->alle($typen) as $quelle) {
             $art = $quelle->art();
 
             try {
@@ -263,11 +271,11 @@ class Quellenverzeichnis
      *
      * @return int Wie viele Zeilen sich tatsaechlich geaendert haben.
      */
-    public function allesAlsGelesen(Model $person, ?string $art = null): int
+    public function allesAlsGelesen(Model $person, ?string $art = null, ?array $typen = null): int
     {
         $geaendert = 0;
 
-        foreach ($this->alle() as $quelle) {
+        foreach ($this->alle($typen) as $quelle) {
             // Mit Art nur deren Quellen (pm #10227, `all` im Werkzeug mit
             // `kind`); ohne Art alles Abhakbare wie bisher.
             if ($quelle instanceof AbhakbareQuelle && ($art === null || $quelle->art() === $art)) {
@@ -324,9 +332,9 @@ class Quellenverzeichnis
      *
      * @throws \RuntimeException wenn diese Art hier nicht loeschbar ist.
      */
-    public function allesLoeschen(Model $person, string $art): int
+    public function allesLoeschen(Model $person, string $art, ?array $typen = null): int
     {
-        $quellen = $this->loeschbare($art);
+        $quellen = $this->loeschbare($art, $typen);
 
         if ($quellen === []) {
             throw new \RuntimeException("Die Art '{$art}' kann hier nicht geloescht werden.");
@@ -355,10 +363,10 @@ class Quellenverzeichnis
         return $this->loeschbare($art) !== [];
     }
 
-    private function loeschbare(string $art): array
+    private function loeschbare(string $art, ?array $typen = null): array
     {
         return array_values(array_filter(
-            $this->alle(),
+            $this->alle($typen),
             fn (InboxQuelle $quelle): bool => $quelle instanceof LoeschbareQuelle && $quelle->art() === $art,
         ));
     }
